@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+
+# Local backend runtime artifacts
+backend/.venv/
+backend/.env.local
+backend/local_dev.db
+
+# Logs
+*.log

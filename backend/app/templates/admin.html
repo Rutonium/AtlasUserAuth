@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas Auth Admin</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <main class="page page-admin">
+    <header class="header">
+      <h1>Atlas Auth Admin</h1>
+      <div class="row gap-sm">
+        <span id="admin-user" class="pill">Checking session...</span>
+        <button id="logout-btn" class="btn-secondary" type="button">Logout</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Provision user by EmployeeID</h2>
+      <form id="provision-form" class="grid-4">
+        <label>
+          Employee ID
+          <input type="text" name="employee_id" required />
+        </label>
+        <label>
+          App Key
+          <input type="text" name="app_key" value="drawing_extractor" required />
+        </label>
+        <label>
+          Initial role
+          <input type="text" name="initial_role" value="user" required />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="make_admin" />
+          Grant system admin
+        </label>
+        <button type="submit">Provision</button>
+      </form>
+      <p id="provision-message" class="message"></p>
+    </section>
+
+    <section class="card">
+      <h2>Set app rights</h2>
+      <form id="rights-form" class="grid-4">
+        <label>
+          Employee ID
+          <input type="number" name="employee_id" required />
+        </label>
+        <label>
+          App Key
+          <input type="text" name="app_key" value="drawing_extractor" required />
+        </label>
+        <label>
+          Role
+          <input type="text" name="role" value="user" required />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="is_active" checked />
+          Access active
+        </label>
+        <label class="full">
+          Rights JSON
+          <textarea name="rights" rows="6">{"can_view": true}</textarea>
+        </label>
+        <button type="submit">Save rights</button>
+      </form>
+      <p id="rights-message" class="message"></p>
+    </section>
+
+    <section class="card">
+      <h2>Users (first 200)</h2>
+      <button id="refresh-users" type="button">Refresh users</button>
+      <table>
+        <thead><tr><th>EmployeeID</th><th>Name</th><th>Email</th><th>Admin</th><th>Active</th></tr></thead>
+        <tbody id="users-table"></tbody>
+      </table>
+    </section>
+  </main>
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>

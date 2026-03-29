@@ -1,0 +1,16 @@
+[Unit]
+Description=Atlas User Auth FastAPI Service
+After=network.target
+
+[Service]
+Type=simple
+User=rune
+Group=rune
+WorkingDirectory=/home/rune/dev/atlas_user_auth/backend
+EnvironmentFile=/etc/atlas_user_auth/atlas_user_auth.env
+ExecStart=/home/rune/dev/atlas_user_auth/backend/.venv/bin/gunicorn -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:5020 app.main:app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

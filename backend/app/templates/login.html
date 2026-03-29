@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas Auth Login</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <main class="page page-login">
+    <section class="card login-card">
+      <h1>Atlas Auth</h1>
+      <p class="muted">Shared login for Atlas applications</p>
+
+      <form id="login-form" class="stack">
+        <label>
+          Employee ID
+          <input type="text" name="employee_id" required />
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" required />
+        </label>
+        <button type="submit">Sign in</button>
+      </form>
+
+      <p id="login-message" class="message"></p>
+
+      <div class="links">
+        <a href="/admin">Open admin page</a>
+      </div>
+    </section>
+  </main>
+  <script src="/static/js/login.js"></script>
+</body>
+</html>
