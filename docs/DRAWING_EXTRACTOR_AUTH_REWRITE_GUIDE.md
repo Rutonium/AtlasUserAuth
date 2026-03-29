@@ -30,6 +30,7 @@ DrawingExtractor must own only:
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me?appKey=drawing_extractor`
+- `GET /login?return_to=<urlencoded_drawingextractor_path>`
 
 Admin-only endpoints for operations team (outside DrawingExtractor runtime UI):
 
@@ -37,6 +38,7 @@ Admin-only endpoints for operations team (outside DrawingExtractor runtime UI):
 - `PUT /api/auth/users/{employeeId}/apps/{appKey}`
 - `POST /api/auth/users/provision-by-employee-id`
 - `GET /api/auth/employees/search?q=...`
+- `POST /api/auth/users/{employeeId}/reset-credential`
 
 ## 4. Configuration required in DrawingExtractor
 
@@ -58,13 +60,25 @@ Rules:
 
 ## 5. Frontend rewrite steps (DrawingExtractor)
 
-## 5.1 Replace login submit target
+## 5.1 Replace login entry target
 
 Current pattern (to remove):
 
 - `POST /api/auth/login` against DrawingExtractor local backend
 
 New pattern:
+
+- redirect to AtlasUserAuth login page with return target:
+
+`window.location.href = ${ATLAS_AUTH_BASE_URL}/login?return_to=${encodeURIComponent('/drawing_extractor/')}`
+
+What AtlasUserAuth does:
+
+- shows shared login UI
+- authenticates user
+- redirects back to `return_to`
+
+Optional (if you keep an in-app login form):
 
 - `POST ${ATLAS_AUTH_BASE_URL}/api/auth/login` with body:
 
@@ -80,13 +94,9 @@ Browser request requirements:
 - `credentials: "include"`
 - `Content-Type: application/json`
 
-Success action:
+Success action (programmatic mode only):
 
 - redirect to DrawingExtractor app root/dashboard
-
-Failure action:
-
-- show generic login error
 
 ## 5.2 Replace session bootstrap
 
@@ -219,6 +229,7 @@ Ensure forwarding headers and cookie scope are compatible.
 1. Login once through AtlasUserAuth, open DrawingExtractor, user is already authenticated.
 2. Call `/auth/me?appKey=drawing_extractor`, verify role/rights loaded.
 3. Logout from DrawingExtractor, session cleared across apps.
+4. Redirect to `${ATLAS_AUTH_BASE_URL}/login?return_to=...` returns user to DrawingExtractor after successful login.
 
 ## Authorization
 

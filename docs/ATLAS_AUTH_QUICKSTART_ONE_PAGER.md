@@ -17,7 +17,7 @@ Migrate an Atlas app from local auth to AtlasUserAuth with low risk and clear ro
 
 1. Define `ATLAS_AUTH_APP_KEY` for app.
 2. Add env config (`ATLAS_AUTH_BASE_URL`, `USE_ATLAS_AUTH=true`, timeout).
-3. Replace login call with `POST /api/auth/login` (cookies included).
+3. Redirect unauthenticated users to `/login?return_to=<urlencoded app path>`.
 4. Bootstrap user via `GET /api/auth/me?appKey=<app_key>`.
 5. Replace logout with `POST /api/auth/logout` + CSRF header.
 6. Guard app features using returned `rights` and `role`.
@@ -27,9 +27,17 @@ Migrate an Atlas app from local auth to AtlasUserAuth with low risk and clear ro
 
 ## Required Endpoints
 
+- `GET /login?return_to=<urlencoded_path_or_url>`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me?appKey=<app_key>`
+
+Admin operations:
+
+- `GET /api/auth/users`
+- `PUT /api/auth/users/{employeeId}/apps/{appKey}`
+- `POST /api/auth/users/provision-by-employee-id`
+- `POST /api/auth/users/{employeeId}/reset-credential`
 
 ## Required Request Rules
 

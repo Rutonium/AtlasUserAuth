@@ -7,6 +7,8 @@ from fastapi.templating import Jinja2Templates
 from app.api.routes import auth, employees, health, users
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
+from app.db.models import Base
+from app.db.session import engine
 
 settings = get_settings()
 configure_logging()
@@ -33,8 +35,21 @@ app.include_router(users.router, prefix='/api')
 app.include_router(employees.router, prefix='/api')
 
 
+@app.on_event('startup')
+def startup_init() -> None:
+    # Local sqlite mode is used for quick developer testing.
+    if settings.atlas_auth_db_url.startswith('sqlite'):
+        Base.metadata.create_all(bind=engine)
+
+
 @app.get('/', response_class=HTMLResponse)
 def login_page(request: Request):
+    return templates.TemplateResponse('login.html', {'request': request})
+
+
+@app.get('/login', response_class=HTMLResponse)
+@app.get('/Login', response_class=HTMLResponse)
+def login_alias_page(request: Request):
     return templates.TemplateResponse('login.html', {'request': request})
 
 

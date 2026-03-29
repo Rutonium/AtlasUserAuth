@@ -4,33 +4,34 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Atlas Auth Login</title>
-  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="stylesheet" href="static/css/app.css" />
 </head>
 <body>
-  <main class="page page-login">
-    <section class="card login-card">
-      <h1>Atlas Auth</h1>
-      <p class="muted">Shared login for Atlas applications</p>
+  <main class="login-shell">
+    <section class="login-paper">
+      <h1 class="login-title">Atlas User Auth</h1>
+      <p class="muted">Shared authentication for Atlas applications</p>
 
-      <form id="login-form" class="stack">
-        <label>
+      <form id="login-form" class="stack login-stack">
+        <label class="field">
           Employee ID
-          <input type="text" name="employee_id" required />
+          <input type="text" name="employee_id" id="employee-id-input" list="employee-suggestions" autocomplete="off" required />
+          <datalist id="employee-suggestions"></datalist>
         </label>
-        <label>
+        <label class="field">
           Password
           <input type="password" name="password" required />
         </label>
-        <button type="submit">Sign in</button>
+        <button class="login-btn" type="submit">Sign in</button>
       </form>
 
       <p id="login-message" class="message"></p>
 
-      <div class="links">
-        <a href="/admin">Open admin page</a>
+      <div class="links login-links">
+        <a href="admin">Open admin page</a>
       </div>
     </section>
   </main>
-  <script src="/static/js/login.js"></script>
+  <script src="static/js/login.js"></script>
 </body>
 </html>

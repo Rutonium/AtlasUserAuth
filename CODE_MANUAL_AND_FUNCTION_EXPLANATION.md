@@ -36,6 +36,22 @@ AtlasUserAuth is a standalone FastAPI service that centralizes:
 
 Atlas apps remain independent for app logic, but they rely on AtlasUserAuth for trusted user context.
 
+## Current State Snapshot (Implemented)
+
+- Shared login page is served at `/`, `/login`, and `/Login`.
+- Login supports app return flow via query params:
+  - `return_to`
+  - `next`
+  - `redirect`
+- Post-login redirect defaults to `/admin` only when no return target is provided.
+- Login page includes live EmployeeID suggestions from:
+  - `GET /api/auth/employees/public-search?q=...`
+- Admin page currently supports:
+  - provision user by EmployeeID
+  - set role/rights per app
+  - reset user password
+  - generate/copy temporary password in UI
+
 ## Design Principles
 
 - Keep implementation simple and auditable.
@@ -100,6 +116,7 @@ deploy/
 3. Password/PIN hash is verified with PBKDF2-HMAC-SHA256.
 4. On success, server creates a session and sets secure HttpOnly cookie.
 5. Audit log records success/failure with safe metadata.
+6. Frontend redirects to `return_to`/`next`/`redirect` when present (same-origin only).
 
 ## 2) Current User for App
 
@@ -151,12 +168,15 @@ Minimum endpoint set:
 - `POST /auth/users/{employeeId}/reset-credential` (admin)
 - `POST /auth/users/provision-by-employee-id` (admin)
 - `GET /auth/employees/search?q=...` (admin helper)
+- `GET /auth/employees/public-search?q=...` (login helper)
 - `GET /healthz`
 - `GET /api/healthz`
 
 Frontend pages:
 
 - `GET /` login page
+- `GET /login` login alias
+- `GET /Login` login alias
 - `GET /admin` admin rights-management page
 
 ## Deployment Summary
@@ -187,12 +207,21 @@ For every PR or local change:
 - 2026-03-30: Added local developer run + smoke scripts and a complete DrawingExtractor auth rewrite guide for programmers/AI agents.
 - 2026-03-30: Added generic Atlas app auth integration guide template for reuse across all apps.
 - 2026-03-30: Added one-page quickstart checklist for sprint planning and rapid onboarding.
+- 2026-03-30: Enabled sqlite local-dev table bootstrap on startup and verified full local auth flow (login/me/users/logout).
+- 2026-03-30: Added real-stack preflight script and SQL+employee API connection runbook.
+- 2026-03-30: Added login aliases (`/login`, `/Login`) and shared-nginx friendly redirects to `/atlas_user_auth/login`.
+- 2026-03-30: Updated login page UI to match DrawingExtractor dev visual style (layout/spacing/colors/typography cues).
+- 2026-03-30: Added live EmployeeID typeahead on login (`/auth/employees/public-search`) and fixed SQL Server compatibility issues in admin APIs.
+- 2026-03-30: Added admin password reset tool UI (generate/copy temporary password) and hardened reset backend for mixed SQL Server `AtlasUsers` schemas.
+- 2026-03-30: Changed login redirect behavior to support app return flow via `return_to`/`next`/`redirect` query params instead of always redirecting to admin.
 
 ## Function and Module Explanations
 
 Module: `backend/app/main.py`
 - `app`: FastAPI application instance and route registration point.
+- `startup_init()`: creates DB tables automatically when running in local sqlite mode.
 - `login_page(request)`: Serves shared login UI (`/`).
+- `login_alias_page(request)`: Serves shared login UI for `/login` and `/Login`.
 - `admin_page(request)`: Serves admin UI (`/admin`).
 
 Module: `backend/app/api/routes/auth.py`
@@ -203,11 +232,12 @@ Module: `backend/app/api/routes/auth.py`
 Module: `backend/app/api/routes/users.py`
 - `list_auth_users(...)`: admin-only user listing.
 - `upsert_user_access(...)`: admin-only role/rights write for one `EmployeeID + AppKey`.
-- `reset_user_credential(...)`: admin-only password reset.
+- `reset_user_credential(...)`: admin-only password reset with explicit 400 on controlled reset failures.
 - `provision_by_employee_id(...)`: admin-only provisioning with required employee-directory validation.
 
 Module: `backend/app/api/routes/employees.py`
 - `employee_search(q, ...)`: admin-only cached employee directory lookup.
+- `public_employee_search(q, ...)`: non-admin login helper endpoint for EmployeeID autocomplete/typeahead.
 
 Module: `backend/app/api/routes/health.py`
 - `healthz()`: liveness endpoint.
@@ -216,7 +246,7 @@ Module: `backend/app/api/routes/health.py`
 Module: `backend/app/services/auth_service.py`
 - `normalize_employee_id(value)`: canonical numeric normalization (`\"00123\" -> \"123\"`).
 - `verify_credentials(...)`: AtlasUsers or break-glass admin verification.
-- `reset_credential(...)`: PBKDF2-based password reset.
+- `reset_credential(...)`: PBKDF2-based password reset with update-first, insert-second, and SQL Server `IDENTITY_INSERT` fallback for incompatible `AtlasUsers` layouts.
 
 Module: `backend/app/services/session_service.py`
 - `create_session(...)`: creates server-side session row and signed cookie token.
@@ -238,12 +268,15 @@ Module: `backend/app/services/csrf_service.py`
 - `enforce_csrf(request, expected, header_name)`: blocks state-changing requests without matching CSRF token.
 
 Module: `backend/app/services/user_access_service.py`
-- `list_users(...)`: returns AtlasUsers summary source.
+- `list_users(...)`: returns merged user summary from `AtlasAppAccess` plus `AtlasUsers` when available (keeps admin usable across schema variants).
 - `get_app_access(...)`: returns active app-specific access row.
 - `upsert_app_access(...)`: creates or updates role/rights per app.
 
 Module: `backend/app/services/audit_log_service.py`
 - `log_event(...)`: structured auth/admin audit logging helper.
+
+Module: `backend/app/db/models.py`
+- `DB_SCHEMA`: dynamic schema selection (`dbo` on SQL Server, none on sqlite local-dev).
 
 ## Deploy Artifacts
 
@@ -259,7 +292,9 @@ Implemented in `deploy/`:
 
 - `backend/scripts/run_local.sh`: creates local venv, installs requirements, creates `.env.local`, starts uvicorn.
 - `backend/scripts/smoke_test_local.sh`: checks login/admin pages and health endpoints.
+- `backend/scripts/test_real_stack.sh`: validates SQL Server + `dbo.AtlasUsers` + employee API before app runtime tests.
 - `backend/LOCAL_DEVELOPMENT.md`: local setup + smoke instructions.
+- `backend/REAL_STACK_CONNECTION_AND_TEST.md`: step-by-step real environment connection and verification guide.
 
 ## Client App Migration Guides
 
@@ -282,6 +317,7 @@ Local checks run:
 - Shell script syntax checks: passed (`bash -n deploy/*.sh`).
 - Local runtime boot: passed via `backend/scripts/run_local.sh`.
 - Local smoke test: passed via `backend/scripts/smoke_test_local.sh` for `/`, `/admin`, `/healthz`, `/api/healthz`.
+- Local auth E2E test: passed for `POST /api/auth/login` (local admin), `GET /api/auth/me`, `GET /api/auth/users`, `POST /api/auth/logout` with CSRF header.
 
 ## Function-by-Function Section Template
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Atlas Auth Admin</title>
-  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="stylesheet" href="static/css/app.css" />
 </head>
 <body>
   <main class="page page-admin">
@@ -69,6 +69,26 @@
     </section>
 
     <section class="card">
+      <h2>Reset user password</h2>
+      <form id="reset-password-form" class="grid-4">
+        <label>
+          Employee ID
+          <input type="number" name="employee_id" required />
+        </label>
+        <label class="full">
+          Temporary password
+          <input type="text" id="generated-password" name="new_password" minlength="8" required />
+        </label>
+        <div class="row gap-sm full">
+          <button type="button" id="generate-password-btn">Generate password</button>
+          <button type="button" id="copy-password-btn" class="btn-secondary">Copy password</button>
+          <button type="submit">Reset password</button>
+        </div>
+      </form>
+      <p id="reset-password-message" class="message"></p>
+    </section>
+
+    <section class="card">
       <h2>Users (first 200)</h2>
       <button id="refresh-users" type="button">Refresh users</button>
       <table>
@@ -77,6 +97,6 @@
       </table>
     </section>
   </main>
-  <script src="/static/js/admin.js"></script>
+  <script src="static/js/admin.js"></script>
 </body>
 </html>

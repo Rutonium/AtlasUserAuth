@@ -42,3 +42,7 @@ curl -fsS http://127.0.0.1:5020/api/healthz
 
 Include `deploy/nginx-atlas_user_auth.conf` inside your shared nginx server block.
 This exposes the app under `/atlas_user_auth/` and proxies to `127.0.0.1:5020`.
+It also adds friendly login aliases:
+
+- `/login` -> `/atlas_user_auth/login`
+- `/Login` -> `/atlas_user_auth/login`

@@ -9,3 +9,7 @@ backend/local_dev.db
 
 # Logs
 *.log
+
+# Local secret scratch files (never commit)
+NotGit
+NotGit.*

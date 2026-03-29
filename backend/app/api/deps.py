@@ -29,7 +29,6 @@ def require_authenticated(session=Depends(current_session)):
 def require_admin(db: Session = Depends(get_db), session=Depends(require_authenticated)):
     if session.EmployeeID == 0:
         return session
-    user = user_access_service.get_user_by_employee_id(db, session.EmployeeID)
-    if not user or not user.IsAdmin:
+    if not user_access_service.is_admin_user(db, session.EmployeeID):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Admin required')
     return session

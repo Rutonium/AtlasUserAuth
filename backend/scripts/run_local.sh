@@ -4,6 +4,28 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+load_env_file() {
+  local env_file="$1"
+  eval "$(
+    python3 - "$env_file" <<'PY'
+import shlex
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    line = raw.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    key = key.strip()
+    if not key or not key.replace("_", "A").isalnum() or not (key[0].isalpha() or key[0] == "_"):
+        continue
+    print(f"export {key}={shlex.quote(value)}")
+PY
+  )"
+}
+
 if [[ ! -d .venv ]]; then
   python3 -m venv .venv
 fi
@@ -52,9 +74,7 @@ if grep -q '^LOCAL_ADMIN_NAME=Local Admin$' .env.local; then
   sed -i 's/^LOCAL_ADMIN_NAME=Local Admin$/LOCAL_ADMIN_NAME="Local Admin"/' .env.local
 fi
 
-set -a
-source .env.local
-set +a
+load_env_file .env.local
 
 export PYTHONPATH="$ROOT_DIR"
 exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "${ATLAS_AUTH_PORT:-5020}" --reload

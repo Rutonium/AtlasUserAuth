@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.api.deps import get_app_settings, require_admin
 from app.core.settings import Settings
-from app.db.models import AtlasUser
 from app.db.session import get_db
 from app.schemas.users import ProvisionByEmployeeIdRequest, ResetCredentialRequest, UserAccessUpdateRequest, UserSummary
 from app.services import auth_service, employee_directory_service, user_access_service
@@ -15,17 +14,22 @@ router = APIRouter(prefix='/auth/users', tags=['users'])
 @router.get('', response_model=list[UserSummary])
 def list_auth_users(db: Session = Depends(get_db), session=Depends(require_admin)):
     del session
+    settings = get_app_settings()
     users = user_access_service.list_users(db)
-    return [
-        UserSummary(
-            employee_id=u.EmployeeID,
-            name=u.Name,
-            email=u.EMail,
-            is_admin=bool(u.IsAdmin),
-            is_active=bool(u.IsActive),
+    rows: list[UserSummary] = []
+    for u in users:
+        employee_id = int(u.get('EmployeeID') or 0)
+        directory_entry = employee_directory_service.get_employee(settings, employee_id) or {}
+        rows.append(
+            UserSummary(
+                employee_id=employee_id,
+                name=directory_entry.get('name'),
+                email=directory_entry.get('email'),
+                is_admin=user_access_service.is_admin_user(db, employee_id),
+                is_active=bool(u.get('IsActive', True)),
+            )
         )
-        for u in users
-    ]
+    return rows
 
 
 @router.put('/{employee_id}/apps/{app_key}')
@@ -39,10 +43,6 @@ def upsert_user_access(
     session=Depends(require_admin),
 ):
     enforce_csrf(request, session.CsrfToken, settings.csrf_header_name)
-
-    user = user_access_service.get_user_by_employee_id(db, employee_id)
-    if not user:
-        raise HTTPException(status_code=404, detail='User not found')
 
     access = user_access_service.upsert_app_access(
         db,
@@ -80,7 +80,10 @@ def reset_user_credential(
     session=Depends(require_admin),
 ):
     enforce_csrf(request, session.CsrfToken, settings.csrf_header_name)
-    auth_service.reset_credential(db, employee_id=employee_id, new_password=payload.new_password)
+    try:
+        auth_service.reset_credential(db, employee_id=employee_id, new_password=payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     log_event(
         'User credential reset by admin',
         event_type='admin.user.reset_credential',
@@ -110,27 +113,18 @@ def provision_by_employee_id(
     if not directory_entry:
         raise HTTPException(status_code=400, detail='EmployeeID not found in employee directory')
 
-    user = user_access_service.get_user_by_employee_id(db, employee_id)
-    if not user:
-        user = AtlasUser(
-            EmployeeID=employee_id,
-            Name=directory_entry.get('name'),
-            Initials=directory_entry.get('initials'),
-            EMail=directory_entry.get('email'),
-            IsActive=True,
-            IsAdmin=payload.make_admin,
+    # Best-effort user row for environments where AtlasUsers is used directly.
+    user_access_service.ensure_user_exists(db, employee_id=employee_id, is_active=True)
+
+    if payload.make_admin:
+        user_access_service.upsert_app_access(
+            db,
+            employee_id=employee_id,
+            app_key='atlas_user_auth_admin',
+            role='admin',
+            rights={'manage_users': True},
+            is_active=True,
         )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    else:
-        user.Name = directory_entry.get('name')
-        user.Initials = directory_entry.get('initials')
-        user.EMail = directory_entry.get('email')
-        if payload.make_admin:
-            user.IsAdmin = True
-        db.add(user)
-        db.commit()
 
     access = user_access_service.upsert_app_access(
         db,
@@ -153,7 +147,7 @@ def provision_by_employee_id(
     return {
         'ok': True,
         'employee_id': employee_id,
-        'name': user.Name,
+        'name': directory_entry.get('name'),
         'app_key': access.AppKey,
         'role': access.Role,
     }

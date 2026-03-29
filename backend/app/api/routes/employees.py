@@ -10,3 +10,8 @@ router = APIRouter(prefix='/auth/employees', tags=['employees'])
 def employee_search(q: str = '', settings: Settings = Depends(get_app_settings), session=Depends(require_admin)):
     del session
     return {'items': employee_directory_service.search_employees(settings, q=q, limit=20)}
+
+
+@router.get('/public-search')
+def public_employee_search(q: str = '', settings: Settings = Depends(get_app_settings)):
+    return {'items': employee_directory_service.search_employees(settings, q=q, limit=12)}

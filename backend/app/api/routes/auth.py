@@ -5,7 +5,7 @@ from app.api.deps import get_app_settings, require_authenticated
 from app.core.settings import Settings
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, MeResponse
-from app.services import auth_service, lockout_service, session_service, user_access_service
+from app.services import auth_service, employee_directory_service, lockout_service, session_service, user_access_service
 from app.services.audit_log_service import log_event
 from app.services.csrf_service import enforce_csrf
 
@@ -94,6 +94,8 @@ def me(
     if not user:
         return MeResponse(authenticated=True, employee_id=session.EmployeeID, app_key=appKey)
 
+    employee = employee_directory_service.get_employee(settings, session.EmployeeID) or {}
+
     access = user_access_service.get_app_access(db, employee_id=session.EmployeeID, app_key=appKey)
     rights = {}
     role = None
@@ -106,10 +108,10 @@ def me(
 
     return MeResponse(
         authenticated=True,
-        employee_id=user.EmployeeID,
-        name=user.Name,
-        email=user.EMail,
-        is_admin=bool(user.IsAdmin),
+        employee_id=int(user.get('EmployeeID') or session.EmployeeID),
+        name=employee.get('name'),
+        email=employee.get('email'),
+        is_admin=user_access_service.is_admin_user(db, session.EmployeeID),
         app_key=appKey,
         role=role,
         rights=rights,

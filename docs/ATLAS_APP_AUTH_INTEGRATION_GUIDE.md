@@ -32,6 +32,7 @@ AtlasUserAuth endpoints used by all apps:
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me?appKey=<app_key>`
+- `GET /login?return_to=<urlencoded_path_or_url>` (shared login page with return redirect)
 
 Admin/ops endpoints (optional for app runtime):
 
@@ -39,6 +40,7 @@ Admin/ops endpoints (optional for app runtime):
 - `PUT /api/auth/users/{employeeId}/apps/{appKey}`
 - `POST /api/auth/users/provision-by-employee-id`
 - `GET /api/auth/employees/search?q=...`
+- `POST /api/auth/users/{employeeId}/reset-credential`
 
 ## 4. App Configuration Template
 
@@ -90,10 +92,17 @@ Proxy must forward:
 
 ## 6.1 Login flow
 
-- Submit credentials to AtlasUserAuth login endpoint.
-- Use `credentials: include`.
-- On success, navigate to app home.
-- On failure, show generic message.
+Recommended:
+
+- Redirect users to AtlasUserAuth login UI:
+  - `/atlas_user_auth/login?return_to=<urlencoded target>`
+- AtlasUserAuth will authenticate, then redirect back to `return_to`.
+- If `return_to` is missing, login defaults to admin page.
+
+Alternative:
+
+- Programmatic login via `POST /api/auth/login` is still supported.
+- If using this alternative, app must decide post-login navigation itself.
 
 ## 6.2 Session bootstrap
 
@@ -164,6 +173,8 @@ On shared host:
 - app path example: `/my_app/`
 - auth path: `/atlas_user_auth/`
 - ensure forwarded headers are set properly
+- add logical login alias redirect where needed:
+  - `/Login` -> `/atlas_user_auth/login`
 
 Cookie/session checks:
 
@@ -179,6 +190,7 @@ Cookie/session checks:
 1. Login once, open second integrated app, user remains authenticated.
 2. `/auth/me` returns app-specific rights for each app key.
 3. Logout from one app ends session for all integrated apps in browser.
+4. Redirect to `/atlas_user_auth/login?return_to=...` sends user back to requested app path after successful login.
 
 ## Authorization
 
