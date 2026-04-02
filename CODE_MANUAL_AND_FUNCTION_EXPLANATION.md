@@ -1,6 +1,6 @@
 # AtlasUserAuth Code Manual and Function Explanation
 
-Last updated: 2026-03-30
+Last updated: 2026-04-02
 Status: Living document (must be updated with each meaningful code change)
 
 ## Purpose
@@ -47,8 +47,12 @@ Atlas apps remain independent for app logic, but they rely on AtlasUserAuth for 
 - Login page includes live EmployeeID suggestions from:
   - `GET /api/auth/employees/public-search?q=...`
 - Admin page currently supports:
-  - provision user by EmployeeID
-  - set role/rights per app
+  - KPI dashboard cards and system health snapshot
+  - Atlas user search and app visibility
+  - employee-directory search before provisioning
+  - per-user access portfolio view
+  - standardized access levels 1-5 with descriptive labels
+  - set role/rights/access level per app
   - reset user password
   - generate/copy temporary password in UI
 
@@ -150,6 +154,8 @@ deploy/
   - `EmployeeID`
   - `AppKey`
   - `Role`
+  - `AccessLevel`
+  - `AccessLabel`
   - `RightsJson`
   - `IsActive`
   - `CreatedAt`
@@ -164,6 +170,8 @@ Minimum endpoint set:
 - `POST /auth/logout`
 - `GET /auth/me?appKey={appKey}`
 - `GET /auth/users` (admin)
+- `GET /auth/users/summary` (admin)
+- `GET /auth/users/{employeeId}` (admin)
 - `PUT /auth/users/{employeeId}/apps/{appKey}` (admin)
 - `POST /auth/users/{employeeId}/reset-credential` (admin)
 - `POST /auth/users/provision-by-employee-id` (admin)
@@ -177,7 +185,7 @@ Frontend pages:
 - `GET /` login page
 - `GET /login` login alias
 - `GET /Login` login alias
-- `GET /admin` admin rights-management page
+- `GET /admin` admin dashboard and rights-management page
 
 ## Deployment Summary
 
@@ -214,12 +222,13 @@ For every PR or local change:
 - 2026-03-30: Added live EmployeeID typeahead on login (`/auth/employees/public-search`) and fixed SQL Server compatibility issues in admin APIs.
 - 2026-03-30: Added admin password reset tool UI (generate/copy temporary password) and hardened reset backend for mixed SQL Server `AtlasUsers` schemas.
 - 2026-03-30: Changed login redirect behavior to support app return flow via `return_to`/`next`/`redirect` query params instead of always redirecting to admin.
+- 2026-04-02: Added a richer admin dashboard with KPI cards, directory-driven provisioning, user-detail access portfolio, app summary metrics, and standardized access levels 1-5 with descriptive labels.
 
 ## Function and Module Explanations
 
 Module: `backend/app/main.py`
 - `app`: FastAPI application instance and route registration point.
-- `startup_init()`: creates DB tables automatically when running in local sqlite mode.
+- `startup_init()`: creates DB tables automatically when running in local sqlite mode and backfills sqlite access-level columns for older local databases.
 - `login_page(request)`: Serves shared login UI (`/`).
 - `login_alias_page(request)`: Serves shared login UI for `/login` and `/Login`.
 - `admin_page(request)`: Serves admin UI (`/admin`).
@@ -227,13 +236,15 @@ Module: `backend/app/main.py`
 Module: `backend/app/api/routes/auth.py`
 - `login(payload, request, response, db, settings)`: validates credentials, enforces lockout, creates session, sets auth + CSRF cookies.
 - `logout(request, response, db, settings, session, session_cookie)`: enforces CSRF, destroys server session, clears cookies.
-- `me(appKey, db, settings, session)`: returns authenticated identity + app-scoped role/rights.
+- `me(appKey, db, settings, session)`: returns authenticated identity + app-scoped role/rights plus optional standardized access-level metadata.
 
 Module: `backend/app/api/routes/users.py`
 - `list_auth_users(...)`: admin-only user listing.
-- `upsert_user_access(...)`: admin-only role/rights write for one `EmployeeID + AppKey`.
+- `get_dashboard_summary(...)`: admin-only KPI data for the dashboard.
+- `get_user_detail(...)`: admin-only identity + full app-access listing for one user.
+- `upsert_user_access(...)`: admin-only role/rights/access-level write for one `EmployeeID + AppKey`.
 - `reset_user_credential(...)`: admin-only password reset with explicit 400 on controlled reset failures.
-- `provision_by_employee_id(...)`: admin-only provisioning with required employee-directory validation.
+- `provision_by_employee_id(...)`: admin-only provisioning with required employee-directory validation and standardized initial access-level support.
 
 Module: `backend/app/api/routes/employees.py`
 - `employee_search(q, ...)`: admin-only cached employee directory lookup.
@@ -269,8 +280,15 @@ Module: `backend/app/services/csrf_service.py`
 
 Module: `backend/app/services/user_access_service.py`
 - `list_users(...)`: returns merged user summary from `AtlasAppAccess` plus `AtlasUsers` when available (keeps admin usable across schema variants).
+- `default_access_label(...)`: maps the standard 1-5 access scale to human-friendly labels.
+- `normalize_access_level(...)`: constrains requested access levels to the supported range.
+- `normalize_access_label(...)`: supplies a default descriptive label when one is not provided.
+- `serialize_access_row(...)`: normalizes one app-access row for API responses.
 - `get_app_access(...)`: returns active app-specific access row.
-- `upsert_app_access(...)`: creates or updates role/rights per app.
+- `list_user_access_entries(...)`: returns all app-access rows for one user.
+- `get_user_detail(...)`: assembles one user plus all app-access rows for the dashboard.
+- `dashboard_summary(...)`: computes KPI totals and top-app metrics for the admin dashboard.
+- `upsert_app_access(...)`: creates or updates role/rights/access-level data per app.
 
 Module: `backend/app/services/audit_log_service.py`
 - `log_event(...)`: structured auth/admin audit logging helper.

@@ -87,6 +87,8 @@ def me(
             is_admin=True,
             app_key=appKey,
             role='super_admin',
+            access_level=5,
+            access_label='Owner',
             rights={'all': True},
         )
 
@@ -99,8 +101,12 @@ def me(
     access = user_access_service.get_app_access(db, employee_id=session.EmployeeID, app_key=appKey)
     rights = {}
     role = None
+    access_level = None
+    access_label = None
     if access:
         role = access.Role
+        access_level = int(getattr(access, 'AccessLevel', 1) or 1)
+        access_label = getattr(access, 'AccessLabel', None) or None
         try:
             rights = json.loads(access.RightsJson or '{}')
         except Exception:
@@ -114,5 +120,7 @@ def me(
         is_admin=user_access_service.is_admin_user(db, session.EmployeeID),
         app_key=appKey,
         role=role,
+        access_level=access_level,
+        access_label=access_label,
         rights=rights,
     )

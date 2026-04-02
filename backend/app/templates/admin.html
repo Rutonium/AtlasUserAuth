@@ -7,94 +7,271 @@
   <link rel="stylesheet" href="static/css/app.css" />
 </head>
 <body>
-  <main class="page page-admin">
-    <header class="header">
-      <h1>Atlas Auth Admin</h1>
-      <div class="row gap-sm">
-        <span id="admin-user" class="pill">Checking session...</span>
+  <main class="admin-shell">
+    <section class="admin-hero">
+      <div class="admin-hero-copy">
+        <span class="eyebrow">Atlas Identity Control</span>
+        <h1>Atlas Auth Admin Dashboard</h1>
+        <p>Manage the shared Atlas login experience, visualize who can reach which programs, and apply consistent access levels across every app.</p>
+      </div>
+      <div class="admin-hero-actions">
+        <div class="status-cluster">
+          <span id="admin-user" class="pill status-pill">Checking session...</span>
+          <span id="health-pill" class="pill health-pill">Loading system health...</span>
+        </div>
         <button id="logout-btn" class="btn-secondary" type="button">Logout</button>
       </div>
-    </header>
-
-    <section class="card">
-      <h2>Provision user by EmployeeID</h2>
-      <form id="provision-form" class="grid-4">
-        <label>
-          Employee ID
-          <input type="text" name="employee_id" required />
-        </label>
-        <label>
-          App Key
-          <input type="text" name="app_key" value="drawing_extractor" required />
-        </label>
-        <label>
-          Initial role
-          <input type="text" name="initial_role" value="user" required />
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="make_admin" />
-          Grant system admin
-        </label>
-        <button type="submit">Provision</button>
-      </form>
-      <p id="provision-message" class="message"></p>
     </section>
 
-    <section class="card">
-      <h2>Set app rights</h2>
-      <form id="rights-form" class="grid-4">
-        <label>
-          Employee ID
-          <input type="number" name="employee_id" required />
-        </label>
-        <label>
-          App Key
-          <input type="text" name="app_key" value="drawing_extractor" required />
-        </label>
-        <label>
-          Role
-          <input type="text" name="role" value="user" required />
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" name="is_active" checked />
-          Access active
-        </label>
-        <label class="full">
-          Rights JSON
-          <textarea name="rights" rows="6">{"can_view": true}</textarea>
-        </label>
-        <button type="submit">Save rights</button>
-      </form>
-      <p id="rights-message" class="message"></p>
+    <section class="kpi-grid">
+      <article class="kpi-card">
+        <span class="kpi-label">Managed users</span>
+        <strong id="kpi-total-users" class="kpi-value">0</strong>
+        <span class="kpi-detail">People known to Atlas auth</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Admin operators</span>
+        <strong id="kpi-admin-users" class="kpi-value">0</strong>
+        <span class="kpi-detail">Users with Atlas admin access</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Access assignments</span>
+        <strong id="kpi-access-entries" class="kpi-value">0</strong>
+        <span class="kpi-detail">Active grants across all programs</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Managed apps</span>
+        <strong id="kpi-unique-apps" class="kpi-value">0</strong>
+        <span id="kpi-directory-status" class="kpi-detail">Employee directory status loading...</span>
+      </article>
     </section>
 
-    <section class="card">
-      <h2>Reset user password</h2>
-      <form id="reset-password-form" class="grid-4">
-        <label>
-          Employee ID
-          <input type="number" name="employee_id" required />
-        </label>
-        <label class="full">
-          Temporary password
-          <input type="text" id="generated-password" name="new_password" minlength="8" required />
-        </label>
-        <div class="row gap-sm full">
-          <button type="button" id="generate-password-btn">Generate password</button>
-          <button type="button" id="copy-password-btn" class="btn-secondary">Copy password</button>
-          <button type="submit">Reset password</button>
-        </div>
-      </form>
-      <p id="reset-password-message" class="message"></p>
-    </section>
+    <section class="dashboard-grid">
+      <aside class="dashboard-sidebar">
+        <section class="card panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Atlas Users</h2>
+              <p class="muted">Browse the first 200 managed users and jump into full access detail.</p>
+            </div>
+            <button id="refresh-users" type="button">Refresh</button>
+          </div>
+          <label class="field">
+            Find Atlas user
+            <input type="search" id="user-filter-input" placeholder="Search by name, Employee ID, email, or app key" />
+          </label>
+          <div id="user-list-meta" class="section-meta">Loading users...</div>
+          <div id="user-list" class="user-list"></div>
+        </section>
 
-    <section class="card">
-      <h2>Users (first 200)</h2>
-      <button id="refresh-users" type="button">Refresh users</button>
-      <table>
-        <thead><tr><th>EmployeeID</th><th>Name</th><th>Email</th><th>Admin</th><th>Active</th></tr></thead>
-        <tbody id="users-table"></tbody>
-      </table>
+        <section class="card panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Directory Search</h2>
+              <p class="muted">Search the employee API by name or Employee ID before provisioning.</p>
+            </div>
+          </div>
+          <label class="field">
+            Employee directory
+            <input type="search" id="directory-search-input" placeholder="Type a name or Employee ID" autocomplete="off" />
+          </label>
+          <div id="directory-results" class="directory-results empty-state">
+            Search results from the employee API will appear here.
+          </div>
+        </section>
+      </aside>
+
+      <section class="dashboard-main">
+        <section class="card profile-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Selected User</h2>
+              <p class="muted">A clear overview of program access, assigned level, and account posture.</p>
+            </div>
+          </div>
+          <div id="selected-user-empty" class="empty-state">
+            Select a user from the Atlas user list or provision a new user from directory search.
+          </div>
+          <div id="selected-user-panel" class="selected-user-panel hidden">
+            <div class="profile-hero">
+              <div>
+                <div id="selected-user-name" class="profile-name">No user selected</div>
+                <div id="selected-user-meta" class="profile-meta"></div>
+              </div>
+              <div class="profile-badges">
+                <span id="selected-user-admin" class="pill subtle-pill">Admin access unknown</span>
+                <span id="selected-user-status" class="pill subtle-pill">Status unknown</span>
+              </div>
+            </div>
+            <div id="selected-user-apps" class="chip-row"></div>
+          </div>
+        </section>
+
+        <section class="card panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Program Access Portfolio</h2>
+              <p class="muted">See every program grant, the current access level, and what role is attached to it.</p>
+            </div>
+            <button id="new-access-btn" type="button">New access grant</button>
+          </div>
+          <div id="access-cards" class="access-cards empty-state">
+            Select a user to view program access.
+          </div>
+        </section>
+
+        <section class="card panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>Access Editor</h2>
+              <p class="muted">Use a standard level 1-5 scale with a descriptive label so access is recognizable across apps.</p>
+            </div>
+          </div>
+          <form id="rights-form" class="dashboard-form">
+            <div class="form-grid">
+              <label>
+                Employee ID
+                <input type="number" name="employee_id" id="access-employee-id" readonly required />
+              </label>
+              <label>
+                App Key
+                <input type="text" name="app_key" id="access-app-key" placeholder="drawing_extractor" required />
+              </label>
+              <label>
+                Role
+                <input type="text" name="role" id="access-role" value="user" required />
+              </label>
+              <label>
+                Access level
+                <select name="access_level" id="access-level" required>
+                  <option value="1">Level 1 · Viewer</option>
+                  <option value="2">Level 2 · Contributor</option>
+                  <option value="3">Level 3 · Specialist</option>
+                  <option value="4">Level 4 · Manager</option>
+                  <option value="5">Level 5 · Owner</option>
+                </select>
+              </label>
+              <label>
+                Access label
+                <input type="text" name="access_label" id="access-label" placeholder="Viewer, Manager, Owner..." />
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="is_active" id="access-is-active" checked />
+                Access active
+              </label>
+              <label class="full">
+                Rights JSON
+                <textarea name="rights" id="access-rights" rows="7">{"can_view": true}</textarea>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">Save access</button>
+              <button type="button" id="format-rights-btn" class="btn-secondary">Format JSON</button>
+              <button type="button" id="reset-access-form-btn" class="btn-secondary">Clear form</button>
+            </div>
+          </form>
+          <p id="rights-message" class="message"></p>
+        </section>
+
+        <section class="split-grid">
+          <section class="card panel-card">
+            <div class="panel-heading">
+              <div>
+                <h2>Provision New User</h2>
+                <p class="muted">Search the employee API first. Employee IDs are only persisted locally when a user is actually provisioned.</p>
+              </div>
+            </div>
+            <div id="provision-selection" class="selection-banner">Choose a person from directory search to start provisioning.</div>
+            <form id="provision-form" class="dashboard-form">
+              <div class="form-grid">
+                <label>
+                  Selected employee
+                  <input type="text" id="provision-selected-name" readonly placeholder="Search by name or Employee ID above" />
+                </label>
+                <label>
+                  Employee ID
+                  <input type="text" name="employee_id" id="provision-employee-id" readonly required />
+                </label>
+                <label>
+                  Initial app key
+                  <input type="text" name="app_key" value="drawing_extractor" required />
+                </label>
+                <label>
+                  Initial role
+                  <input type="text" name="initial_role" value="user" required />
+                </label>
+                <label>
+                  Initial access level
+                  <select name="initial_access_level" required>
+                    <option value="1">Level 1 · Viewer</option>
+                    <option value="2">Level 2 · Contributor</option>
+                    <option value="3" selected>Level 3 · Specialist</option>
+                    <option value="4">Level 4 · Manager</option>
+                    <option value="5">Level 5 · Owner</option>
+                  </select>
+                </label>
+                <label>
+                  Access label
+                  <input type="text" name="initial_access_label" placeholder="Specialist" />
+                </label>
+                <label class="checkbox-label full">
+                  <input type="checkbox" name="make_admin" />
+                  Grant Atlas admin access during provisioning
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Provision user</button>
+              </div>
+            </form>
+            <p id="provision-message" class="message"></p>
+          </section>
+
+          <section class="card panel-card">
+            <div class="panel-heading">
+              <div>
+                <h2>Credential Reset</h2>
+                <p class="muted">Generate a temporary password, copy it securely, and reset credentials for the selected user.</p>
+              </div>
+            </div>
+            <form id="reset-password-form" class="dashboard-form">
+              <div class="form-grid">
+                <label>
+                  Employee ID
+                  <input type="number" name="employee_id" id="reset-employee-id" readonly required />
+                </label>
+                <label class="full">
+                  Temporary password
+                  <input type="text" id="generated-password" name="new_password" minlength="8" required />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="button" id="generate-password-btn">Generate password</button>
+                <button type="button" id="copy-password-btn" class="btn-secondary">Copy password</button>
+                <button type="submit">Reset password</button>
+              </div>
+            </form>
+            <p id="reset-password-message" class="message"></p>
+          </section>
+        </section>
+
+        <section class="card panel-card">
+          <div class="panel-heading">
+            <div>
+              <h2>System Overview</h2>
+              <p class="muted">Top-level health and the most provisioned programs in the Atlas auth landscape.</p>
+            </div>
+          </div>
+          <div class="overview-grid">
+            <div>
+              <div id="health-summary" class="status-list">System status loading...</div>
+            </div>
+            <div>
+              <div class="subheading">Top apps by assignments</div>
+              <div id="top-apps" class="top-apps empty-state">Loading app metrics...</div>
+            </div>
+          </div>
+        </section>
+      </section>
     </section>
   </main>
   <script src="static/js/admin.js"></script>

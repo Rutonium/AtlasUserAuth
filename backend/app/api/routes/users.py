@@ -3,7 +3,15 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_app_settings, require_admin
 from app.core.settings import Settings
 from app.db.session import get_db
-from app.schemas.users import ProvisionByEmployeeIdRequest, ResetCredentialRequest, UserAccessUpdateRequest, UserSummary
+from app.schemas.users import (
+    AppAccessSummary,
+    DashboardSummary,
+    ProvisionByEmployeeIdRequest,
+    ResetCredentialRequest,
+    UserAccessUpdateRequest,
+    UserDetail,
+    UserSummary,
+)
 from app.services import auth_service, employee_directory_service, user_access_service
 from app.services.audit_log_service import log_event
 from app.services.csrf_service import enforce_csrf
@@ -27,9 +35,39 @@ def list_auth_users(db: Session = Depends(get_db), session=Depends(require_admin
                 email=directory_entry.get('email'),
                 is_admin=user_access_service.is_admin_user(db, employee_id),
                 is_active=bool(u.get('IsActive', True)),
+                app_access_count=int(u.get('AppAccessCount') or 0),
+                active_app_count=int(u.get('ActiveAppCount') or 0),
+                app_keys=list(u.get('AppKeys') or []),
             )
         )
     return rows
+
+
+@router.get('/summary', response_model=DashboardSummary)
+def get_dashboard_summary(db: Session = Depends(get_db), session=Depends(require_admin)):
+    del session
+    return DashboardSummary(**user_access_service.dashboard_summary(db))
+
+
+@router.get('/{employee_id}', response_model=UserDetail)
+def get_user_detail(employee_id: int, db: Session = Depends(get_db), session=Depends(require_admin)):
+    del session
+    settings = get_app_settings()
+    detail = user_access_service.get_user_detail(db, employee_id=employee_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail='User not found')
+    directory_entry = employee_directory_service.get_employee(settings, employee_id) or {}
+    return UserDetail(
+        employee_id=employee_id,
+        name=directory_entry.get('name'),
+        email=directory_entry.get('email'),
+        is_admin=user_access_service.is_admin_user(db, employee_id),
+        is_active=bool(detail.get('IsActive', True)),
+        app_access_count=int(detail.get('AppAccessCount') or 0),
+        active_app_count=int(detail.get('ActiveAppCount') or 0),
+        app_keys=list(detail.get('AppKeys') or []),
+        access_entries=[AppAccessSummary(**entry) for entry in detail.get('AccessEntries') or []],
+    )
 
 
 @router.put('/{employee_id}/apps/{app_key}')
@@ -49,6 +87,8 @@ def upsert_user_access(
         employee_id=employee_id,
         app_key=app_key,
         role=payload.role,
+        access_level=payload.access_level,
+        access_label=payload.access_label,
         rights=payload.rights,
         is_active=payload.is_active,
     )
@@ -65,6 +105,8 @@ def upsert_user_access(
         'employee_id': employee_id,
         'app_key': app_key,
         'role': access.Role,
+        'access_level': access.AccessLevel,
+        'access_label': access.AccessLabel,
         'rights': payload.rights,
         'is_active': access.IsActive,
     }
@@ -122,6 +164,8 @@ def provision_by_employee_id(
             employee_id=employee_id,
             app_key='atlas_user_auth_admin',
             role='admin',
+            access_level=5,
+            access_label='Owner',
             rights={'manage_users': True},
             is_active=True,
         )
@@ -131,6 +175,8 @@ def provision_by_employee_id(
         employee_id=employee_id,
         app_key=payload.app_key,
         role=payload.initial_role,
+        access_level=payload.initial_access_level,
+        access_label=payload.initial_access_label,
         rights={},
         is_active=True,
     )
@@ -150,4 +196,6 @@ def provision_by_employee_id(
         'name': directory_entry.get('name'),
         'app_key': access.AppKey,
         'role': access.Role,
+        'access_level': access.AccessLevel,
+        'access_label': access.AccessLabel,
     }

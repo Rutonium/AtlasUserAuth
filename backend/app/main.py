@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 from app.api.routes import auth, employees, health, users
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
@@ -40,6 +41,28 @@ def startup_init() -> None:
     # Local sqlite mode is used for quick developer testing.
     if settings.atlas_auth_db_url.startswith('sqlite'):
         Base.metadata.create_all(bind=engine)
+        with engine.begin() as conn:
+            columns = {row[1] for row in conn.execute(text("PRAGMA table_info('AtlasAppAccess')")).fetchall()}
+            if 'AccessLevel' not in columns:
+                conn.execute(text("ALTER TABLE AtlasAppAccess ADD COLUMN AccessLevel INTEGER NOT NULL DEFAULT 1"))
+            if 'AccessLabel' not in columns:
+                conn.execute(text("ALTER TABLE AtlasAppAccess ADD COLUMN AccessLabel TEXT NULL"))
+            conn.execute(
+                text(
+                    """
+                    UPDATE AtlasAppAccess
+                    SET AccessLabel = CASE COALESCE(AccessLevel, 1)
+                        WHEN 1 THEN 'Viewer'
+                        WHEN 2 THEN 'Contributor'
+                        WHEN 3 THEN 'Specialist'
+                        WHEN 4 THEN 'Manager'
+                        WHEN 5 THEN 'Owner'
+                        ELSE 'Custom'
+                    END
+                    WHERE AccessLabel IS NULL OR TRIM(AccessLabel) = ''
+                    """
+                )
+            )
 
 
 @app.get('/', response_class=HTMLResponse)

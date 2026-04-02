@@ -38,6 +38,8 @@ class AtlasAppAccess(Base):
     EmployeeID: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     AppKey: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     Role: Mapped[str] = mapped_column(String(100), nullable=False, server_default='user')
+    AccessLevel: Mapped[int] = mapped_column(Integer, nullable=False, server_default='1')
+    AccessLabel: Mapped[str | None] = mapped_column(String(100), nullable=True)
     RightsJson: Mapped[str] = mapped_column(Text, nullable=False, server_default='{}')
     IsActive: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default='1')
     CreatedAt: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.getdate())

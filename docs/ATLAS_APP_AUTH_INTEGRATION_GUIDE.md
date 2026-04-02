@@ -1,6 +1,6 @@
 # Atlas App Integration Guide: Standardizing on AtlasUserAuth
 
-Last updated: 2026-03-30
+Last updated: 2026-04-02
 Audience: Atlas developers and AI coding agents
 Scope: Any Atlas application migrating from local auth to shared AtlasUserAuth
 
@@ -22,8 +22,9 @@ Every integrated app must follow this contract:
 1. Credentials are verified only by AtlasUserAuth.
 2. Current user context is resolved only by `GET /api/auth/me?appKey=<app_key>`.
 3. App-side authorization uses `role` and `rights` from AtlasUserAuth response.
-4. App key is server-configured and never user-editable.
-5. State-changing auth calls include CSRF header from `atlas_auth_csrf` cookie.
+4. `access_level` (1-5) and `access_label` are optional cross-app descriptive metadata and should only drive policy when an app explicitly chooses to adopt them.
+5. App key is server-configured and never user-editable.
+6. State-changing auth calls include CSRF header from `atlas_auth_csrf` cookie.
 
 ## 3. Standard Endpoints
 
@@ -37,6 +38,8 @@ AtlasUserAuth endpoints used by all apps:
 Admin/ops endpoints (optional for app runtime):
 
 - `GET /api/auth/users`
+- `GET /api/auth/users/summary`
+- `GET /api/auth/users/{employeeId}`
 - `PUT /api/auth/users/{employeeId}/apps/{appKey}`
 - `POST /api/auth/users/provision-by-employee-id`
 - `GET /api/auth/employees/search?q=...`
@@ -115,6 +118,8 @@ On app init and protected-route entry:
   - `name`
   - `is_admin`
   - `role`
+  - `access_level` (optional standardized 1-5 scale)
+  - `access_label` (optional descriptive label)
   - `rights`
 
 ## 6.3 Logout flow
@@ -149,6 +154,13 @@ Rules:
 - default false when key absent
 - never infer rights from UI state
 - never trust user-provided role/right payloads
+- use standardized level meanings consistently when helpful:
+  - 1 = Viewer
+  - 2 = Contributor
+  - 3 = Specialist
+  - 4 = Manager
+  - 5 = Owner
+- apps may adopt these levels for reporting or local policy, but should not assume every app uses every level
 
 ## 9. Legacy Auth Decommission Checklist
 

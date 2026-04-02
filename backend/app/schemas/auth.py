@@ -19,6 +19,8 @@ class MeResponse(BaseModel):
     is_admin: bool = False
     app_key: str | None = None
     role: str | None = None
+    access_level: int | None = None
+    access_label: str | None = None
     rights: dict = Field(default_factory=dict)
 
 
