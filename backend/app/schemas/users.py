@@ -58,3 +58,55 @@ class ProvisionByEmployeeIdRequest(BaseModel):
 
 class ResetCredentialRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=256)
+
+
+class AccessMatrixApp(BaseModel):
+    app_key: str
+    user_count: int = 0
+
+
+class AccessMatrixUserCell(BaseModel):
+    app_key: str
+    access_level: int = Field(default=0, ge=0, le=5)
+    is_active: bool = False
+
+
+class AccessMatrixUser(BaseModel):
+    employee_id: int
+    name: str | None = None
+    email: str | None = None
+    is_active: bool
+    app_levels: dict[str, int] = Field(default_factory=dict)
+
+
+class AccessMatrixResponse(BaseModel):
+    apps: list[AccessMatrixApp] = Field(default_factory=list)
+    users: list[AccessMatrixUser] = Field(default_factory=list)
+
+
+class AccessMatrixCellUpdateRequest(BaseModel):
+    access_level: int = Field(ge=0, le=5)
+
+
+class AccessMatrixAddUserRequest(BaseModel):
+    employee_id: str = Field(min_length=1, max_length=32)
+    app_levels: dict[str, int] = Field(default_factory=dict)
+
+
+class RightDefinitionRow(BaseModel):
+    right_key: str
+    levels: dict[str, bool] = Field(default_factory=dict)
+
+
+class RightsMatrixResponse(BaseModel):
+    app_key: str
+    apps: list[str] = Field(default_factory=list)
+    rows: list[RightDefinitionRow] = Field(default_factory=list)
+
+
+class RightDefinitionUpdateRequest(BaseModel):
+    levels: dict[str, bool] = Field(default_factory=dict)
+
+
+class RightDefinitionCreateRequest(BaseModel):
+    right_key: str = Field(min_length=1, max_length=120)

@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
-from app.api.routes import auth, employees, health, users
+from app.api.routes import apps, auth, employees, health, users
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
 from app.db.models import Base
@@ -33,6 +33,7 @@ app.mount('/static', StaticFiles(directory=str(base_dir / 'static')), name='stat
 app.include_router(health.router)
 app.include_router(auth.router, prefix='/api')
 app.include_router(users.router, prefix='/api')
+app.include_router(apps.router, prefix='/api')
 app.include_router(employees.router, prefix='/api')
 
 
@@ -79,3 +80,13 @@ def login_alias_page(request: Request):
 @app.get('/admin', response_class=HTMLResponse)
 def admin_page(request: Request):
     return templates.TemplateResponse('admin.html', {'request': request})
+
+
+@app.get('/admin/access-matrix', response_class=HTMLResponse)
+def access_matrix_page(request: Request):
+    return templates.TemplateResponse('access_matrix.html', {'request': request})
+
+
+@app.get('/admin/rights-matrix', response_class=HTMLResponse)
+def rights_matrix_page(request: Request):
+    return templates.TemplateResponse('rights_matrix.html', {'request': request})

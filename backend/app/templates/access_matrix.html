@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas Access Matrix</title>
+  <link rel="icon" type="image/svg+xml" href="../static/favicon.svg" />
+  <link rel="stylesheet" href="../static/css/app.css" />
+</head>
+<body>
+  <main class="matrix-shell">
+    <section class="matrix-hero">
+      <div>
+        <span class="eyebrow">Bulk Access Control</span>
+        <h1>Access Matrix</h1>
+        <p>Assign user access levels across all connected apps in one compact workspace. Use <strong>0</strong> for no access and <strong>1-5</strong> for the shared level scale.</p>
+      </div>
+      <div class="matrix-hero-actions">
+        <span id="matrix-admin-user" class="pill status-pill">Checking session...</span>
+        <a class="login-link-btn btn-secondary" href="../admin">Back to dashboard</a>
+        <a class="login-link-btn btn-secondary" href="../admin/rights-matrix">Define rights levels</a>
+        <button id="matrix-logout-btn" class="btn-secondary" type="button">Logout</button>
+      </div>
+    </section>
+
+    <section class="matrix-toolbar card">
+      <label class="field">
+        Filter users
+        <input type="search" id="matrix-user-filter" placeholder="Search name, Employee ID, or email" />
+      </label>
+      <label class="field">
+        Filter apps
+        <input type="search" id="matrix-app-filter" placeholder="Search app key" />
+      </label>
+      <div class="matrix-kpis">
+        <div class="matrix-mini-kpi">
+          <span>Users</span>
+          <strong id="matrix-user-count">0</strong>
+        </div>
+        <div class="matrix-mini-kpi">
+          <span>Apps</span>
+          <strong id="matrix-app-count">0</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="card matrix-card">
+      <div class="panel-heading">
+        <div>
+          <h2>Assignments</h2>
+          <p class="muted">Change a level in a cell to save it immediately. Use the final row to add a new user from the employee directory.</p>
+        </div>
+      </div>
+      <p id="matrix-message" class="message"></p>
+      <div class="matrix-table-wrap">
+        <table class="matrix-table">
+          <thead id="matrix-head"></thead>
+          <tbody id="matrix-body"></tbody>
+          <tfoot id="matrix-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="../static/js/access_matrix.js"></script>
+</body>
+</html>

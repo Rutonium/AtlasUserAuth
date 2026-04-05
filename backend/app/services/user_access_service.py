@@ -273,6 +273,111 @@ def dashboard_summary(db: Session) -> dict:
     }
 
 
+def list_distinct_apps(db: Session) -> list[dict]:
+    if _IS_SQLITE:
+        stmt = text(
+            f"""
+            SELECT AppKey, COUNT(*) AS UserCount
+            FROM {_APP_ACCESS_TABLE}
+            GROUP BY AppKey
+            ORDER BY AppKey ASC
+            """
+        )
+    else:
+        stmt = text(
+            f"""
+            SELECT AppKey, COUNT(*) AS UserCount
+            FROM {_APP_ACCESS_TABLE}
+            GROUP BY AppKey
+            ORDER BY AppKey ASC
+            """
+        )
+    return [dict(row) for row in db.execute(stmt).mappings().all()]
+
+
+def access_matrix(db: Session, limit: int = 200) -> dict:
+    users = list_users(db, limit=limit)
+    apps = list_distinct_apps(db)
+    app_keys = [str(row.get("AppKey") or "").strip() for row in apps if str(row.get("AppKey") or "").strip()]
+    access_rows = db.execute(
+        text(
+            f"""
+            SELECT EmployeeID, AppKey, COALESCE(AccessLevel, 1) AS AccessLevel, COALESCE(IsActive, 1) AS IsActive
+            FROM {_APP_ACCESS_TABLE}
+            """
+            if _IS_SQLITE
+            else f"""
+            SELECT EmployeeID, AppKey, ISNULL(AccessLevel, 1) AS AccessLevel, ISNULL(IsActive, 1) AS IsActive
+            FROM {_APP_ACCESS_TABLE}
+            """
+        )
+    ).mappings().all()
+    by_employee: dict[int, dict[str, int]] = {}
+    for row in access_rows:
+        employee_id = int(row.get("EmployeeID") or 0)
+        app_key = str(row.get("AppKey") or "").strip()
+        if employee_id <= 0 or not app_key:
+            continue
+        by_employee.setdefault(employee_id, {})
+        by_employee[employee_id][app_key] = normalize_access_level(row.get("AccessLevel")) if bool(row.get("IsActive", True)) else 0
+    return {
+        "apps": [
+            {"app_key": app_key, "user_count": int(row.get("UserCount") or 0)}
+            for app_key, row in [(str(r.get("AppKey") or "").strip(), r) for r in apps]
+            if app_key
+        ],
+        "users": [
+            {
+                "employee_id": int(user.get("EmployeeID") or 0),
+                "is_active": bool(user.get("IsActive", True)),
+                "app_levels": {app_key: int(by_employee.get(int(user.get("EmployeeID") or 0), {}).get(app_key, 0)) for app_key in app_keys},
+            }
+            for user in users
+            if int(user.get("EmployeeID") or 0) > 0
+        ],
+    }
+
+
+def update_access_level_only(db: Session, *, employee_id: int, app_key: str, access_level: int) -> AtlasAppAccess | None:
+    existing = db.scalar(
+        select(AtlasAppAccess).where(AtlasAppAccess.EmployeeID == employee_id, AtlasAppAccess.AppKey == app_key)
+    )
+    normalized_level = int(access_level)
+    if normalized_level <= 0:
+        if existing:
+            existing.IsActive = False
+            db.add(existing)
+            db.commit()
+            db.refresh(existing)
+            return existing
+        return None
+
+    if existing:
+        existing.AccessLevel = normalize_access_level(normalized_level)
+        existing.AccessLabel = normalize_access_label(existing.AccessLevel, getattr(existing, "AccessLabel", None))
+        existing.IsActive = True
+        if not existing.Role:
+            existing.Role = "user"
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    row = AtlasAppAccess(
+        EmployeeID=employee_id,
+        AppKey=app_key,
+        Role="user",
+        AccessLevel=normalize_access_level(normalized_level),
+        AccessLabel=normalize_access_label(normalize_access_level(normalized_level), None),
+        RightsJson="{}",
+        IsActive=True,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
 def upsert_app_access(
     db: Session,
     *,

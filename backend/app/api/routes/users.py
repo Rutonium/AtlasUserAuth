@@ -4,6 +4,11 @@ from app.api.deps import get_app_settings, require_admin
 from app.core.settings import Settings
 from app.db.session import get_db
 from app.schemas.users import (
+    AccessMatrixAddUserRequest,
+    AccessMatrixApp,
+    AccessMatrixCellUpdateRequest,
+    AccessMatrixResponse,
+    AccessMatrixUser,
     AppAccessSummary,
     DashboardSummary,
     ProvisionByEmployeeIdRequest,
@@ -41,6 +46,101 @@ def list_auth_users(db: Session = Depends(get_db), session=Depends(require_admin
             )
         )
     return rows
+
+
+@router.get('/matrix', response_model=AccessMatrixResponse)
+def get_access_matrix(db: Session = Depends(get_db), session=Depends(require_admin)):
+    del session
+    settings = get_app_settings()
+    payload = user_access_service.access_matrix(db)
+    users: list[AccessMatrixUser] = []
+    for row in payload.get('users') or []:
+        employee_id = int(row.get('employee_id') or 0)
+        directory_entry = employee_directory_service.get_employee(settings, employee_id) or {}
+        users.append(
+            AccessMatrixUser(
+                employee_id=employee_id,
+                name=directory_entry.get('name'),
+                email=directory_entry.get('email'),
+                is_active=bool(row.get('is_active', True)),
+                app_levels=dict(row.get('app_levels') or {}),
+            )
+        )
+    apps = [AccessMatrixApp(**row) for row in payload.get('apps') or []]
+    return AccessMatrixResponse(apps=apps, users=users)
+
+
+@router.put('/matrix/{employee_id}/apps/{app_key}')
+def update_matrix_cell(
+    employee_id: int,
+    app_key: str,
+    payload: AccessMatrixCellUpdateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_app_settings),
+    session=Depends(require_admin),
+):
+    enforce_csrf(request, session.CsrfToken, settings.csrf_header_name)
+    updated = user_access_service.update_access_level_only(db, employee_id=employee_id, app_key=app_key, access_level=payload.access_level)
+    log_event(
+        'User access level updated from matrix',
+        event_type='admin.user_access.matrix_update',
+        employee_id=employee_id,
+        ip=request.client.host if request.client else None,
+        app_key=app_key,
+        result='ok',
+    )
+    return {
+        'ok': True,
+        'employee_id': employee_id,
+        'app_key': app_key,
+        'access_level': int(payload.access_level),
+        'is_active': bool(updated.IsActive) if updated else False,
+    }
+
+
+@router.post('/matrix/add-user')
+def add_user_from_matrix(
+    payload: AccessMatrixAddUserRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_app_settings),
+    session=Depends(require_admin),
+):
+    enforce_csrf(request, session.CsrfToken, settings.csrf_header_name)
+    normalized = auth_service.normalize_employee_id(payload.employee_id)
+    if not normalized:
+        raise HTTPException(status_code=400, detail='Invalid employee_id')
+    employee_id = int(normalized)
+    directory_entry = employee_directory_service.get_employee(settings, employee_id)
+    if not directory_entry:
+        raise HTTPException(status_code=400, detail='EmployeeID not found in employee directory')
+
+    selected_levels = {
+        str(app_key).strip(): int(level)
+        for app_key, level in (payload.app_levels or {}).items()
+        if str(app_key).strip() and int(level or 0) > 0
+    }
+    if not selected_levels:
+        raise HTTPException(status_code=400, detail='Choose at least one app access level before adding the user')
+
+    user_access_service.ensure_user_exists(db, employee_id=employee_id, is_active=True)
+    for app_key, level in selected_levels.items():
+        user_access_service.update_access_level_only(db, employee_id=employee_id, app_key=app_key, access_level=level)
+
+    log_event(
+        'User added from matrix',
+        event_type='admin.user_access.matrix_add_user',
+        employee_id=employee_id,
+        ip=request.client.host if request.client else None,
+        result='ok',
+    )
+    return {
+        'ok': True,
+        'employee_id': employee_id,
+        'name': directory_entry.get('name'),
+        'app_levels': selected_levels,
+    }
 
 
 @router.get('/summary', response_model=DashboardSummary)

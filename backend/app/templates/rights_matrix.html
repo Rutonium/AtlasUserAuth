@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas Rights Definition Matrix</title>
+  <link rel="icon" type="image/svg+xml" href="../static/favicon.svg" />
+  <link rel="stylesheet" href="../static/css/app.css" />
+</head>
+<body>
+  <main class="matrix-shell">
+    <section class="matrix-hero">
+      <div>
+        <span class="eyebrow">Rights Configuration</span>
+        <h1>Rights Definition Matrix</h1>
+        <p>Define what levels <strong>1-5</strong> mean for one app at a time. Each row is a right key and each checked cell means that level includes that right.</p>
+      </div>
+      <div class="matrix-hero-actions">
+        <span id="rights-admin-user" class="pill status-pill">Checking session...</span>
+        <a class="login-link-btn btn-secondary" href="../admin">Back to dashboard</a>
+        <a class="login-link-btn btn-secondary" href="../admin/access-matrix">Access matrix</a>
+        <button id="rights-logout-btn" class="btn-secondary" type="button">Logout</button>
+      </div>
+    </section>
+
+    <section class="matrix-toolbar card">
+      <label class="field">
+        App
+        <select id="rights-app-select"></select>
+      </label>
+      <label class="field">
+        Filter rights
+        <input type="search" id="rights-filter" placeholder="Search right key" />
+      </label>
+      <div class="matrix-kpis">
+        <div class="matrix-mini-kpi">
+          <span>Rights</span>
+          <strong id="rights-row-count">0</strong>
+        </div>
+        <div class="matrix-mini-kpi">
+          <span>Selected app</span>
+          <strong id="rights-app-name">-</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="card matrix-card">
+      <div class="panel-heading">
+        <div>
+          <h2>Level Mapping</h2>
+          <p class="muted">Tick or untick cells to save immediately. The final row lets you add a new right key for the selected app.</p>
+        </div>
+      </div>
+      <p id="rights-message" class="message"></p>
+      <div class="matrix-table-wrap">
+        <table class="matrix-table rights-table">
+          <thead id="rights-head"></thead>
+          <tbody id="rights-body"></tbody>
+          <tfoot id="rights-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="../static/js/rights_matrix.js"></script>
+</body>
+</html>

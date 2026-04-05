@@ -31,7 +31,6 @@ const state = {
   users: [],
   summary: null,
   health: null,
-  selectedUser: null,
   selectedDirectoryEmployee: null,
 };
 
@@ -44,19 +43,13 @@ const ACCESS_LEVEL_LABELS = {
 };
 
 const healthPill = document.getElementById("health-pill");
-const userList = document.getElementById("user-list");
-const userListMeta = document.getElementById("user-list-meta");
-const userFilterInput = document.getElementById("user-filter-input");
 const directorySearchInput = document.getElementById("directory-search-input");
 const directoryResults = document.getElementById("directory-results");
-const selectedUserEmpty = document.getElementById("selected-user-empty");
-const selectedUserPanel = document.getElementById("selected-user-panel");
 const selectedUserName = document.getElementById("selected-user-name");
 const selectedUserMeta = document.getElementById("selected-user-meta");
 const selectedUserAdmin = document.getElementById("selected-user-admin");
 const selectedUserStatus = document.getElementById("selected-user-status");
 const selectedUserApps = document.getElementById("selected-user-apps");
-const accessCards = document.getElementById("access-cards");
 const provisionSelection = document.getElementById("provision-selection");
 const provisionSelectedName = document.getElementById("provision-selected-name");
 const provisionEmployeeId = document.getElementById("provision-employee-id");
@@ -86,27 +79,6 @@ function accessLabel(level, label) {
   const normalizedLevel = Number(level || 1);
   const normalizedLabel = String(label || ACCESS_LEVEL_LABELS[normalizedLevel] || "Custom");
   return `L${normalizedLevel} · ${normalizedLabel}`;
-}
-
-function rightsCount(entry) {
-  const rights = entry?.rights;
-  return rights && typeof rights === "object" ? Object.keys(rights).length : 0;
-}
-
-function scoreUser(user, query) {
-  const q = String(query || "").trim().toLowerCase();
-  if (!q) return 9999;
-  const employeeId = String(user.employee_id || "");
-  const name = String(user.name || "").toLowerCase();
-  const email = String(user.email || "").toLowerCase();
-  const apps = Array.isArray(user.app_keys) ? user.app_keys.join(" ").toLowerCase() : "";
-  if (employeeId === q) return 0;
-  if (employeeId.startsWith(q)) return 1;
-  if (name.startsWith(q)) return 2;
-  if (email.startsWith(q)) return 3;
-  if (apps.includes(q)) return 4;
-  if (name.includes(q) || email.includes(q) || employeeId.includes(q)) return 5;
-  return 10;
 }
 
 function renderKpis() {
@@ -162,132 +134,36 @@ function renderTopApps() {
     .join("");
 }
 
-function renderUserList() {
-  const filter = String(userFilterInput?.value || "");
-  const users = [...state.users]
-    .filter((user) => !filter.trim() || scoreUser(user, filter) < 10)
-    .sort((a, b) => {
-      const delta = scoreUser(a, filter) - scoreUser(b, filter);
-      if (delta !== 0) return delta;
-      return String(a.name || a.employee_id).localeCompare(String(b.name || b.employee_id));
-    });
-
-  userListMeta.textContent = `${users.length} of ${state.users.length} users shown`;
-  if (!users.length) {
-    userList.innerHTML = `<div class="empty-state">No users match the current filter.</div>`;
+function renderSelectedEmployee() {
+  const item = state.selectedDirectoryEmployee;
+  if (!item) {
+    selectedUserName.textContent = "No employee selected yet";
+    selectedUserMeta.textContent = "Choose someone from the directory search below to provision or to prepare a password reset.";
+    selectedUserAdmin.textContent = "Provisioning target not set";
+    selectedUserStatus.textContent = "Awaiting directory selection";
+    selectedUserApps.innerHTML = `<span class="empty-state inline-empty">Directory-driven provisioning keeps Employee IDs out of Atlas auth until the user is actually created.</span>`;
     return;
   }
 
-  userList.innerHTML = users
-    .map((user) => {
-      const isSelected = Number(state.selectedUser?.employee_id) === Number(user.employee_id);
-      const appChips = (user.app_keys || []).slice(0, 4).map((appKey) => `<span class="tiny-chip">${escapeHtml(appKey)}</span>`).join("");
-      const extra = Array.isArray(user.app_keys) && user.app_keys.length > 4
-        ? `<span class="tiny-chip">+${user.app_keys.length - 4} more</span>`
-        : "";
-      return `
-        <button class="user-row ${isSelected ? "is-selected" : ""}" type="button" data-employee-id="${escapeHtml(user.employee_id)}">
-          <div class="user-row-top">
-            <strong>${escapeHtml(user.name || `Employee ${user.employee_id}`)}</strong>
-            <span class="tiny-status ${user.is_active ? "active" : "inactive"}">${user.is_active ? "Active" : "Inactive"}</span>
-          </div>
-          <div class="user-row-meta">#${escapeHtml(user.employee_id)} · ${escapeHtml(user.email || "No email on file")}</div>
-          <div class="user-row-foot">
-            <span>${user.app_access_count || 0} grants</span>
-            <span>${user.is_admin ? "Atlas admin" : "Standard user"}</span>
-          </div>
-          <div class="tiny-chip-row">${appChips}${extra}</div>
-        </button>
-      `;
-    })
-    .join("");
-}
-
-function fillAccessForm(entry) {
-  const employeeId = Number(state.selectedUser?.employee_id || 0);
-  document.getElementById("access-employee-id").value = employeeId ? String(employeeId) : "";
-  document.getElementById("access-app-key").value = entry?.app_key || "";
-  document.getElementById("access-role").value = entry?.role || "user";
-  document.getElementById("access-level").value = String(entry?.access_level || 1);
-  document.getElementById("access-label").value = entry?.access_label || ACCESS_LEVEL_LABELS[entry?.access_level || 1];
-  document.getElementById("access-rights").value = JSON.stringify(entry?.rights || { can_view: true }, null, 2);
-  document.getElementById("access-is-active").checked = entry ? Boolean(entry.is_active) : true;
-}
-
-function renderSelectedUser() {
-  const user = state.selectedUser;
-  if (!user) {
-    selectedUserEmpty.classList.remove("hidden");
-    selectedUserPanel.classList.add("hidden");
-    accessCards.className = "access-cards empty-state";
-    accessCards.textContent = "Select a user to view program access.";
-    fillAccessForm(null);
-    document.getElementById("reset-employee-id").value = "";
-    return;
-  }
-
-  selectedUserEmpty.classList.add("hidden");
-  selectedUserPanel.classList.remove("hidden");
-  selectedUserName.textContent = user.name || `Employee ${user.employee_id}`;
-  selectedUserMeta.textContent = `Employee ID ${user.employee_id}${user.email ? ` · ${user.email}` : ""}`;
-  selectedUserAdmin.textContent = user.is_admin ? "Atlas admin enabled" : "No Atlas admin access";
-  selectedUserStatus.textContent = user.is_active ? "Directory account active" : "Directory account inactive";
-  selectedUserApps.innerHTML = (user.access_entries || []).length
-    ? user.access_entries
-        .map(
-          (entry) =>
-            `<span class="app-chip">${escapeHtml(entry.app_key)}<small>${escapeHtml(accessLabel(entry.access_level, entry.access_label))}</small></span>`
-        )
-        .join("")
-    : `<span class="empty-state inline-empty">No program grants yet.</span>`;
-
-  document.getElementById("reset-employee-id").value = String(user.employee_id);
-  fillAccessForm(user.access_entries?.[0] || null);
-
-  if (!(user.access_entries || []).length) {
-    accessCards.className = "access-cards empty-state";
-    accessCards.textContent = "This user has no program access yet. Use the editor to create the first grant.";
-    return;
-  }
-
-  accessCards.className = "access-cards";
-  accessCards.innerHTML = user.access_entries
-    .map(
-      (entry) => `
-        <article class="access-card ${entry.is_active ? "" : "muted-card"}">
-          <div class="access-card-head">
-            <div>
-              <div class="access-app">${escapeHtml(entry.app_key)}</div>
-              <div class="access-role">${escapeHtml(entry.role)}</div>
-            </div>
-            <span class="level-badge level-${escapeHtml(entry.access_level)}">${escapeHtml(accessLabel(entry.access_level, entry.access_label))}</span>
-          </div>
-          <div class="access-card-body">
-            <div class="access-stat">
-              <span>Status</span>
-              <strong>${entry.is_active ? "Active" : "Inactive"}</strong>
-            </div>
-            <div class="access-stat">
-              <span>Rights</span>
-              <strong>${rightsCount(entry)}</strong>
-            </div>
-          </div>
-          <pre class="rights-preview">${escapeHtml(JSON.stringify(entry.rights || {}, null, 2))}</pre>
-          <div class="access-card-actions">
-            <button type="button" class="btn-secondary" data-action="edit-access" data-app-key="${escapeHtml(entry.app_key)}">Edit</button>
-            <button type="button" data-action="toggle-access" data-app-key="${escapeHtml(entry.app_key)}">${entry.is_active ? "Deactivate" : "Reactivate"}</button>
-          </div>
-        </article>
-      `
-    )
-    .join("");
+  const existing = state.users.find((user) => Number(user.employee_id) === Number(item.employee_id));
+  selectedUserName.textContent = item.name || `Employee ${item.employee_id}`;
+  selectedUserMeta.textContent = `Employee ID ${item.employee_id}${item.email ? ` · ${item.email}` : ""}`;
+  selectedUserAdmin.textContent = existing?.is_admin ? "Already an Atlas admin" : "Ready for provisioning";
+  selectedUserStatus.textContent = existing
+    ? `Already in Atlas auth${existing.is_active ? " · Active" : " · Inactive"}`
+    : "Directory match only";
+  selectedUserApps.innerHTML = existing && Array.isArray(existing.app_keys) && existing.app_keys.length
+    ? existing.app_keys.map((appKey) => `<span class="app-chip">${escapeHtml(appKey)}</span>`).join("")
+    : `<span class="empty-state inline-empty">${existing ? "No current app access recorded." : "This person has not been provisioned in Atlas auth yet."}</span>`;
 }
 
 function chooseDirectoryEmployee(item) {
   state.selectedDirectoryEmployee = item;
   provisionSelectedName.value = `${item.name} (${item.employee_id})`;
   provisionEmployeeId.value = String(item.employee_id);
+  document.getElementById("reset-employee-id").value = String(item.employee_id);
   provisionSelection.textContent = `${item.name} selected from the employee directory. Provisioning will save Employee ID ${item.employee_id} into Atlas auth only when you create the user.`;
+  renderSelectedEmployee();
 }
 
 function renderDirectoryResults(items) {
@@ -308,7 +184,7 @@ function renderDirectoryResults(items) {
           </div>
           <div class="directory-actions">
             <button type="button" data-action="select-directory" data-employee-id="${escapeHtml(item.employee_id)}">Use for provisioning</button>
-            ${existing ? `<button type="button" class="btn-secondary" data-action="open-user" data-employee-id="${escapeHtml(item.employee_id)}">Open existing user</button>` : ""}
+            ${existing ? `<span class="directory-existing">Already in Atlas auth</span>` : ""}
           </div>
         </article>
       `;
@@ -337,19 +213,9 @@ async function loadSession() {
   }
 }
 
-async function loadUsers(options = {}) {
+async function loadUsers() {
   state.users = await api("api/auth/users");
-  renderUserList();
-  if (options.preserveSelection && state.selectedUser?.employee_id) {
-    const stillExists = state.users.some((user) => Number(user.employee_id) === Number(state.selectedUser.employee_id));
-    if (stillExists) {
-      await selectUser(state.selectedUser.employee_id);
-      return;
-    }
-  }
-  if (!state.selectedUser && state.users.length) {
-    await selectUser(state.users[0].employee_id);
-  }
+  renderSelectedEmployee();
 }
 
 async function loadDashboardSummary() {
@@ -362,13 +228,6 @@ async function loadHealth() {
   state.health = await api("api/healthz");
   renderKpis();
   renderHealth();
-}
-
-async function selectUser(employeeId) {
-  const detail = await api(`api/auth/users/${encodeURIComponent(employeeId)}`);
-  state.selectedUser = detail;
-  renderUserList();
-  renderSelectedUser();
 }
 
 async function lookupDirectory(query) {
@@ -500,88 +359,19 @@ function setupProvision() {
         `Provisioned ${out.name || out.employee_id} for ${out.app_key} at ${accessLabel(out.access_level, out.access_label)}.`,
         "success"
       );
-      await Promise.all([loadUsers({ preserveSelection: false }), loadDashboardSummary()]);
-      await selectUser(out.employee_id);
+      await Promise.all([loadUsers(), loadDashboardSummary()]);
+      document.getElementById("reset-employee-id").value = String(out.employee_id);
+      selectedUserStatus.textContent = "Provisioned in Atlas auth";
+      renderSelectedEmployee();
     } catch (error) {
       setMessage("provision-message", error.message, "error");
     }
   });
 }
 
-function setupAccessEditor() {
-  const form = document.getElementById("rights-form");
-  form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const fd = new FormData(form);
-    const employeeId = Number(fd.get("employee_id"));
-    if (!employeeId) {
-      setMessage("rights-message", "Select a user before saving access.", "error");
-      return;
-    }
-    const appKey = String(fd.get("app_key") || "").trim();
-    let rights;
-    try {
-      rights = JSON.parse(String(fd.get("rights") || "{}"));
-    } catch {
-      setMessage("rights-message", "Rights JSON is invalid.", "error");
-      return;
-    }
-    setMessage("rights-message", "Saving access grant...", "neutral");
-    const payload = {
-      role: String(fd.get("role") || "user").trim(),
-      access_level: Number(fd.get("access_level") || 1),
-      access_label: String(fd.get("access_label") || "").trim() || null,
-      rights,
-      is_active: fd.get("is_active") === "on",
-    };
-    try {
-      await api(`api/auth/users/${employeeId}/apps/${encodeURIComponent(appKey)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setMessage("rights-message", `Saved ${appKey} access for ${employeeId}.`, "success");
-      await Promise.all([loadUsers({ preserveSelection: true }), loadDashboardSummary()]);
-    } catch (error) {
-      setMessage("rights-message", error.message, "error");
-    }
-  });
-
-  document.getElementById("format-rights-btn")?.addEventListener("click", () => {
-    const rightsField = document.getElementById("access-rights");
-    try {
-      rightsField.value = JSON.stringify(JSON.parse(rightsField.value || "{}"), null, 2);
-      setMessage("rights-message", "Rights JSON formatted.", "success");
-    } catch {
-      setMessage("rights-message", "Could not format invalid JSON.", "error");
-    }
-  });
-
-  document.getElementById("reset-access-form-btn")?.addEventListener("click", () => {
-    fillAccessForm(null);
-    setMessage("rights-message", "Access editor cleared.", "neutral");
-  });
-
-  document.getElementById("new-access-btn")?.addEventListener("click", () => {
-    fillAccessForm(null);
-    setMessage("rights-message", "Ready to create a new access grant for the selected user.", "neutral");
-  });
-}
-
 function setupInteractions() {
-  document.getElementById("refresh-users")?.addEventListener("click", async () => {
-    await Promise.all([loadUsers({ preserveSelection: true }), loadDashboardSummary(), loadHealth()]);
-  });
-
-  userFilterInput?.addEventListener("input", () => {
-    renderUserList();
-  });
-
-  userList?.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-employee-id]");
-    if (!button) return;
-    const employeeId = Number(button.dataset.employeeId);
-    if (employeeId) await selectUser(employeeId);
+  document.getElementById("refresh-dashboard")?.addEventListener("click", async () => {
+    await Promise.all([loadUsers(), loadDashboardSummary(), loadHealth()]);
   });
 
   directorySearchInput?.addEventListener("input", (event) => {
@@ -596,48 +386,10 @@ function setupInteractions() {
     const action = target?.dataset.action;
     const employeeId = Number(target?.dataset.employeeId);
     if (!action || !employeeId) return;
-    if (action === "open-user") {
-      await selectUser(employeeId);
-      return;
-    }
     if (action === "select-directory") {
       const resp = await api(`api/auth/employees/search?q=${encodeURIComponent(employeeId)}`);
       const item = (resp.items || []).find((entry) => Number(entry.employee_id) === employeeId);
       if (item) chooseDirectoryEmployee(item);
-    }
-  });
-
-  accessCards?.addEventListener("click", async (event) => {
-    const target = event.target.closest("[data-action]");
-    const action = target?.dataset.action;
-    const appKey = target?.dataset.appKey;
-    if (!action || !appKey || !state.selectedUser) return;
-    const entry = (state.selectedUser.access_entries || []).find((item) => item.app_key === appKey);
-    if (!entry) return;
-    if (action === "edit-access") {
-      fillAccessForm(entry);
-      setMessage("rights-message", `Editing ${appKey} for ${state.selectedUser.employee_id}.`, "neutral");
-      return;
-    }
-    if (action === "toggle-access") {
-      setMessage("rights-message", `${entry.is_active ? "Deactivating" : "Reactivating"} ${appKey}...`, "neutral");
-      try {
-        await api(`api/auth/users/${state.selectedUser.employee_id}/apps/${encodeURIComponent(appKey)}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            role: entry.role,
-            access_level: entry.access_level,
-            access_label: entry.access_label,
-            rights: entry.rights,
-            is_active: !entry.is_active,
-          }),
-        });
-        await Promise.all([loadUsers({ preserveSelection: true }), loadDashboardSummary()]);
-        setMessage("rights-message", `${appKey} updated.`, "success");
-      } catch (error) {
-        setMessage("rights-message", error.message, "error");
-      }
     }
   });
 }
@@ -646,11 +398,10 @@ async function bootstrap() {
   const ok = await loadSession();
   if (!ok) return;
   await Promise.all([loadDashboardSummary(), loadHealth(), loadUsers()]);
-  renderSelectedUser();
+  renderSelectedEmployee();
 }
 
 setupProvision();
-setupAccessEditor();
 setupResetPassword();
 setupLogout();
 setupInteractions();
