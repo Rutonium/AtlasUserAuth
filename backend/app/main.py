@@ -9,7 +9,8 @@ from app.api.routes import apps, auth, employees, health, users
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
 from app.db.models import Base
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
+from app.services import app_rights_service
 
 settings = get_settings()
 configure_logging()
@@ -64,6 +65,8 @@ def startup_init() -> None:
                     """
                 )
             )
+    with SessionLocal.begin() as session:
+        app_rights_service.ensure_default_right_definitions(session)
 
 
 @app.get('/', response_class=HTMLResponse)

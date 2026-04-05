@@ -3,6 +3,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from app.core.settings import get_settings
 from app.db.models import AtlasAppAccess, DB_SCHEMA
+from app.services.app_catalog_service import KNOWN_APP_KEYS
 
 _USERS_TABLE = f"{DB_SCHEMA}.AtlasUsers" if DB_SCHEMA else "AtlasUsers"
 _IS_SQLITE = get_settings().atlas_auth_db_url.startswith("sqlite")
@@ -299,6 +300,11 @@ def list_distinct_apps(db: Session) -> list[dict]:
 def list_admin_visible_apps(db: Session) -> list[dict]:
     access_rows = list_distinct_apps(db)
     apps_by_key: dict[str, dict] = {}
+    for app_key in KNOWN_APP_KEYS:
+        normalized = str(app_key or "").strip()
+        if not normalized:
+            continue
+        apps_by_key[normalized] = {"AppKey": normalized, "UserCount": 0}
     for row in access_rows:
         app_key = str(row.get("AppKey") or "").strip()
         if not app_key:
