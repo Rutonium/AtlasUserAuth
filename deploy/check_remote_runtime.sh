@@ -3,6 +3,7 @@ set -euo pipefail
 
 TARGET_HOST="${ATLAS_DEPLOY_HOST:-}"
 TARGET_USER="${ATLAS_DEPLOY_USER:-rune}"
+SSH_MODE="${ATLAS_SSH_MODE:-ssh}"
 SERVICE_NAME="atlas_user_auth"
 ENV_FILE="/etc/atlas_user_auth/atlas_user_auth.env"
 PORT="5020"
@@ -12,7 +13,16 @@ if [[ -z "$TARGET_HOST" ]]; then
   exit 1
 fi
 
-ssh "${TARGET_USER}@${TARGET_HOST}" "
+remote_exec() {
+  local remote_cmd="$1"
+  if [[ "$SSH_MODE" == "tailscale" ]]; then
+    tailscale ssh "${TARGET_USER}@${TARGET_HOST}" "$remote_cmd"
+  else
+    ssh "${TARGET_USER}@${TARGET_HOST}" "$remote_cmd"
+  fi
+}
+
+remote_exec "
 set -e
 python3 --version
 command -v pip3 >/dev/null

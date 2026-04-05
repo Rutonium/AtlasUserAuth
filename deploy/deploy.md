@@ -3,6 +3,12 @@
 ## One-command deploy
 
 ```bash
+export ATLAS_DEPLOY_HOST=runes-sandkasse
+export ATLAS_DEPLOY_USER=root
+export ATLAS_SSH_MODE=tailscale
+export ATLAS_DEPLOY_PATH=/home/rune/dev/atlas_user_auth
+export ATLAS_APP_OWNER=rune
+
 ./deploy/deploy_to_debian.sh \
   --allow-interactive-auth \
   --allow-interactive-sudo
@@ -11,6 +17,12 @@
 Optional first-time infra install:
 
 ```bash
+export ATLAS_DEPLOY_HOST=runes-sandkasse
+export ATLAS_DEPLOY_USER=root
+export ATLAS_SSH_MODE=tailscale
+export ATLAS_DEPLOY_PATH=/home/rune/dev/atlas_user_auth
+export ATLAS_APP_OWNER=rune
+
 ./deploy/deploy_to_debian.sh \
   --allow-interactive-auth \
   --allow-interactive-sudo \
@@ -24,10 +36,14 @@ Optional first-time infra install:
 
 - `/etc/atlas_user_auth/atlas_user_auth.env`
 - Start with `backend/.env.example` and fill secrets.
+- On `runes-sandkasse`, the service runs as user `rune` from `/home/rune/dev/atlas_user_auth/backend`, even when deployment transport is performed as `root` over Tailscale SSH.
 
 ## Post-deploy checks
 
 ```bash
+export ATLAS_DEPLOY_HOST=runes-sandkasse
+export ATLAS_DEPLOY_USER=root
+export ATLAS_SSH_MODE=tailscale
 ./deploy/check_remote_runtime.sh
 ```
 

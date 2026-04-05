@@ -320,7 +320,11 @@ async function loadSession() {
   try {
     const me = await api("api/auth/me?appKey=atlas_user_auth_admin");
     if (Boolean(me.is_admin) === false) {
-      adminUser.textContent = "Not admin";
+      adminUser.textContent = me.name || me.employee_id || "Signed in";
+      sessionStorage.setItem(
+        "atlas_auth_notice",
+        "You are signed in, but this account does not have Atlas admin access."
+      );
       window.location.href = "login";
       return false;
     }

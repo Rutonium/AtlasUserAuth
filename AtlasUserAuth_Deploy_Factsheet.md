@@ -2,7 +2,7 @@
 
 Practical deployment standard for the new standalone `AtlasUserAuth` service on your Debian host.
 
-Last updated: March 29, 2026.
+Last updated: April 5, 2026.
 
 ## Objective
 
@@ -13,9 +13,26 @@ Deploy `AtlasUserAuth` with one script-driven workflow and avoid manual service/
 - Host: Debian Linux
 - Reverse proxy: nginx
 - Service manager: systemd
+- Tailscale SSH is the required remote-access path
+- Deploy transport user: `root` via `tailscale ssh`
 - Runtime user: `rune`
 - Repo base: `/home/rune/dev/atlas_user_auth`
 - SQL Server backend via `mssql+pyodbc`
+
+## Confirmed Server Reality
+
+These details were verified live on `runes-sandkasse` and should be treated as the default deployment assumptions unless the server is rebuilt:
+
+- Tailscale host: `runes-sandkasse`
+- Tailscale SSH command: `tailscale ssh root@runes-sandkasse`
+- Normal SSH to app user is not the standard path here
+- There is a real local user `rune`, but deployment transport should still happen as `root`
+- App files live in `/home/rune/dev/atlas_user_auth`
+- systemd service runs as `User=rune`
+- Working directory is `/home/rune/dev/atlas_user_auth/backend`
+- Environment file already exists at `/etc/atlas_user_auth/atlas_user_auth.env`
+- nginx snippet already exists at `/etc/nginx/snippets/nginx-atlas_user_auth.conf`
+- nginx `apps` site already includes the Atlas auth snippet
 
 ## Recommended Runtime Paths
 
@@ -24,6 +41,8 @@ Deploy `AtlasUserAuth` with one script-driven workflow and avoid manual service/
 - Service name: `atlas_user_auth`
 - Internal app port: `5020`
 - Public route via nginx: `/atlas_user_auth/`
+- Deploy transport: `root@runes-sandkasse` over Tailscale SSH
+- App owner/group after deploy: `rune:rune`
 
 ## Non-Negotiable Deploy Artifacts
 
@@ -40,6 +59,12 @@ Every release should include:
 Primary deploy command should support:
 
 ```bash
+export ATLAS_DEPLOY_HOST=runes-sandkasse
+export ATLAS_DEPLOY_USER=root
+export ATLAS_SSH_MODE=tailscale
+export ATLAS_DEPLOY_PATH=/home/rune/dev/atlas_user_auth
+export ATLAS_APP_OWNER=rune
+
 ./deploy/deploy_to_debian.sh \
   --allow-interactive-auth \
   --allow-interactive-sudo
@@ -48,6 +73,12 @@ Primary deploy command should support:
 And optional infrastructure install flags:
 
 ```bash
+export ATLAS_DEPLOY_HOST=runes-sandkasse
+export ATLAS_DEPLOY_USER=root
+export ATLAS_SSH_MODE=tailscale
+export ATLAS_DEPLOY_PATH=/home/rune/dev/atlas_user_auth
+export ATLAS_APP_OWNER=rune
+
 ./deploy/deploy_to_debian.sh \
   --allow-interactive-auth \
   --allow-interactive-sudo \
@@ -63,8 +94,10 @@ And optional infrastructure install flags:
 
 - Archive and upload repo to target host
 - Exclude heavy/local artifacts (`.git`, venv, node_modules, dist, caches)
+- Support transport over Tailscale SSH, not just normal SSH
+- Allow deployment as `root` while restoring app ownership to `rune`
 - Extract into `/home/rune/dev/atlas_user_auth`
-- Create/update backend venv and install requirements
+- Create/update backend venv and install requirements as `rune`
 - Restart systemd service
 - Run health checks (`/healthz`, `/api/healthz`)
 - Print recent `systemctl`/`journalctl` on failure
@@ -72,6 +105,7 @@ And optional infrastructure install flags:
 
 `check_remote_runtime.sh` should:
 
+- Support transport over Tailscale SSH, not just normal SSH
 - Validate `systemctl status atlas_user_auth`
 - Validate env file presence
 - Validate runtime tools (`python3`, `pip`, ODBC dependencies if needed)
@@ -113,6 +147,8 @@ Required behavior:
 
 - `WorkingDirectory=/home/rune/dev/atlas_user_auth/backend`
 - `EnvironmentFile=/etc/atlas_user_auth/atlas_user_auth.env`
+- `User=rune`
+- `Group=rune`
 - Start with gunicorn + uvicorn worker
 - `Restart=on-failure`
 - fixed bind port `0.0.0.0:5020`
@@ -138,7 +174,9 @@ Before deploy:
 
 1. Update code and migrations
 2. Verify `.env.example` includes new required keys
-3. Ensure deploy scripts and unit/nginx templates are in sync
+3. Verify Tailscale is connected on the local machine
+4. Verify `tailscale ssh root@runes-sandkasse` works before starting deploy
+5. Ensure deploy scripts and unit/nginx templates are in sync
 
 After deploy:
 
@@ -146,13 +184,17 @@ After deploy:
 2. `curl -fsS http://127.0.0.1:5020/api/healthz`
 3. Verify route via nginx public path
 4. Verify login, `/auth/me`, and employee search/provisioning
+5. Watch for gunicorn worker timeouts in `journalctl`
 
 ## Fast Troubleshooting
 
+- Tailscale access issue: run `tailscale status` and confirm `runes-sandkasse` is online
+- Tailscale SSH auth issue: retry `tailscale ssh root@runes-sandkasse` and complete browser approval if prompted
 - Service fails to start: inspect `journalctl -u atlas_user_auth -n 120 --no-pager`
 - DB errors: verify connection string + SQL Server reachability
 - Employee directory issues: verify `EMPLOYEE_API_*` variables and token
 - Cross-app session not shared: verify cookie domain/path/samesite/secure and nginx forwarding
+- Worker timeout history: inspect `journalctl -u atlas_user_auth --no-pager` for gunicorn timeout events after deploy
 
 ## Recommendation For Codex Prompting
 
