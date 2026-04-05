@@ -7,6 +7,7 @@ from app.db.models import AtlasAppAccess, DB_SCHEMA
 _USERS_TABLE = f"{DB_SCHEMA}.AtlasUsers" if DB_SCHEMA else "AtlasUsers"
 _IS_SQLITE = get_settings().atlas_auth_db_url.startswith("sqlite")
 _APP_ACCESS_TABLE = f"{DB_SCHEMA + '.' if DB_SCHEMA else ''}AtlasAppAccess"
+_APP_RIGHTS_TABLE = f"{DB_SCHEMA + '.' if DB_SCHEMA else ''}AtlasAppRightDefinitions"
 
 ACCESS_LEVEL_LABELS = {
     1: "Viewer",
@@ -295,9 +296,39 @@ def list_distinct_apps(db: Session) -> list[dict]:
     return [dict(row) for row in db.execute(stmt).mappings().all()]
 
 
+def list_admin_visible_apps(db: Session) -> list[dict]:
+    access_rows = list_distinct_apps(db)
+    apps_by_key: dict[str, dict] = {}
+    for row in access_rows:
+        app_key = str(row.get("AppKey") or "").strip()
+        if not app_key:
+            continue
+        apps_by_key[app_key] = {
+            "AppKey": app_key,
+            "UserCount": int(row.get("UserCount") or 0),
+        }
+
+    rights_rows = db.execute(
+        text(
+            f"""
+            SELECT DISTINCT AppKey
+            FROM {_APP_RIGHTS_TABLE}
+            ORDER BY AppKey ASC
+            """
+        )
+    ).mappings().all()
+    for row in rights_rows:
+        app_key = str(row.get("AppKey") or "").strip()
+        if not app_key:
+            continue
+        apps_by_key.setdefault(app_key, {"AppKey": app_key, "UserCount": 0})
+
+    return [apps_by_key[app_key] for app_key in sorted(apps_by_key.keys())]
+
+
 def access_matrix(db: Session, limit: int = 200) -> dict:
     users = list_users(db, limit=limit)
-    apps = list_distinct_apps(db)
+    apps = list_admin_visible_apps(db)
     app_keys = [str(row.get("AppKey") or "").strip() for row in apps if str(row.get("AppKey") or "").strip()]
     access_rows = db.execute(
         text(
