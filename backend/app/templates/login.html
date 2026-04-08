@@ -28,6 +28,34 @@
 
       <p id="login-message" class="message"></p>
 
+      {% if launcher_apps %}
+      <section id="app-launcher-panel" class="login-launcher hidden" aria-labelledby="app-launcher-title">
+        <div class="login-launcher-head">
+          <div>
+            <h2 id="app-launcher-title">Choose where to continue</h2>
+            <p id="app-launcher-copy" class="muted">Pick an Atlas app to open after sign-in.</p>
+          </div>
+          <span id="app-launcher-badge" class="login-launcher-badge">No destination selected</span>
+        </div>
+
+        <div class="login-launcher-grid">
+          {% for app in launcher_apps %}
+          <button
+            class="launcher-app-card"
+            type="button"
+            data-app-target="{{ app.path }}"
+            data-app-key="{{ app.app_key }}"
+            data-app-label="{{ app.label }}"
+          >
+            <span class="launcher-app-kicker">{{ app.app_key }}</span>
+            <strong>{{ app.label }}</strong>
+            <span>{{ app.description }}</span>
+          </button>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
       <div id="session-panel" class="login-session hidden">
         <div id="session-summary" class="session-summary"></div>
         <div class="login-actions">

@@ -7,8 +7,14 @@ const sessionSummary = document.getElementById("session-summary");
 const continueLink = document.getElementById("continue-link");
 const adminLink = document.getElementById("admin-link");
 const logoutExistingBtn = document.getElementById("logout-existing-btn");
+const launcherPanel = document.getElementById("app-launcher-panel");
+const launcherCopy = document.getElementById("app-launcher-copy");
+const launcherBadge = document.getElementById("app-launcher-badge");
+const launcherCards = Array.from(document.querySelectorAll("[data-app-target]"));
 
 let lookupTimer = null;
+let selectedLauncherTarget = "";
+let selectedLauncherLabel = "";
 
 function getCookie(name) {
   const cookie = document.cookie
@@ -25,6 +31,7 @@ function resolvePostLoginTarget() {
     params.get("return_to") ||
     params.get("next") ||
     params.get("redirect") ||
+    selectedLauncherTarget ||
     "";
   if (!requested) return "admin";
 
@@ -42,6 +49,59 @@ function resolvePostLoginTarget() {
 function hasExplicitReturnTarget() {
   const params = new URLSearchParams(window.location.search);
   return Boolean(params.get("return_to") || params.get("next") || params.get("redirect"));
+}
+
+function shouldShowLauncher() {
+  return Boolean(launcherPanel) && hasExplicitReturnTarget() === false;
+}
+
+function updateLauncherSelection(target, label) {
+  selectedLauncherTarget = target || "";
+  selectedLauncherLabel = label || "";
+
+  launcherCards.forEach((card) => {
+    card.classList.toggle("is-selected", card.dataset.appTarget === selectedLauncherTarget);
+  });
+
+  if (launcherBadge) {
+    launcherBadge.textContent = selectedLauncherLabel
+      ? `Selected: ${selectedLauncherLabel}`
+      : "No destination selected";
+  }
+
+  if (launcherCopy) {
+    launcherCopy.textContent = selectedLauncherLabel
+      ? `After sign-in, continue directly to ${selectedLauncherLabel}.`
+      : "Pick an Atlas app to open after sign-in.";
+  }
+}
+
+function setLauncherEnabled(enabled) {
+  launcherCards.forEach((card) => {
+    card.classList.toggle("is-live-link", enabled);
+  });
+}
+
+function initializeLauncher() {
+  if (!shouldShowLauncher()) return;
+  launcherPanel?.classList.remove("hidden");
+  setLauncherEnabled(false);
+
+  launcherCards.forEach((card) => {
+    card.addEventListener("click", () => {
+      const target = card.dataset.appTarget || "";
+      const label = card.dataset.appLabel || card.dataset.appKey || "the selected app";
+
+      if (form?.classList.contains("hidden")) {
+        if (target) window.location.href = target;
+        return;
+      }
+
+      updateLauncherSelection(target, label);
+      message.textContent = `After sign-in, you will be sent to ${label}.`;
+      message.style.color = "#0a5f73";
+    });
+  });
 }
 
 async function loginApi(path, options = {}) {
@@ -66,6 +126,10 @@ function showSessionState(me) {
   form?.classList.add("hidden");
   sessionPanel?.classList.remove("hidden");
   logoutExistingBtn?.classList.remove("hidden");
+  if (shouldShowLauncher()) {
+    launcherPanel?.classList.remove("hidden");
+    setLauncherEnabled(true);
+  }
 
   const target = resolvePostLoginTarget();
   const hasRequestedTarget = target !== "admin";
@@ -214,3 +278,4 @@ adminLink?.addEventListener("click", (event) => {
 });
 
 checkExistingSession();
+initializeLauncher();

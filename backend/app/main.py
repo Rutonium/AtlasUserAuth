@@ -10,7 +10,7 @@ from app.core.logging import configure_logging
 from app.core.settings import get_settings
 from app.db.models import Base
 from app.db.session import SessionLocal, engine
-from app.services import app_rights_service
+from app.services import app_catalog_service, app_rights_service
 
 settings = get_settings()
 configure_logging()
@@ -71,13 +71,25 @@ def startup_init() -> None:
 
 @app.get('/', response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse('login.html', {'request': request})
+    return templates.TemplateResponse(
+        'login.html',
+        {
+            'request': request,
+            'launcher_apps': app_catalog_service.list_login_launcher_apps(),
+        },
+    )
 
 
 @app.get('/login', response_class=HTMLResponse)
 @app.get('/Login', response_class=HTMLResponse)
 def login_alias_page(request: Request):
-    return templates.TemplateResponse('login.html', {'request': request})
+    return templates.TemplateResponse(
+        'login.html',
+        {
+            'request': request,
+            'launcher_apps': app_catalog_service.list_login_launcher_apps(),
+        },
+    )
 
 
 @app.get('/admin', response_class=HTMLResponse)
