@@ -794,8 +794,10 @@ th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 8px;
 
 .login-btn {
   background: #01193e;
+  color: #fff;
   border-radius: 8px;
   padding: 10px 14px;
+  text-decoration: none;
 }
 
 .login-btn:hover {
